@@ -1,0 +1,18 @@
+# Response headers for static hosts that read a "_headers" file (Netlify, Cloudflare Pages).
+# For nginx / IIS / Apache copy the same headers into the server configuration (see docs/WEB-DEPLOY.md).
+#
+# The Content-Security-Policy here must be the one in index.html plus frame-ancestors (a <meta> tag cannot carry that directive).
+# tools/set-api-url.mjs keeps both in step with config.js; tools/check-bundle.mjs fails when they differ.
+
+/*
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self' https://api.eballotsacdeco.site; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: no-referrer
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=()
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Resource-Policy: same-origin
+  Cache-Control: no-cache
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable

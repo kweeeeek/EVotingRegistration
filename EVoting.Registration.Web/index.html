@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <!-- Keep this policy identical to the one in _headers: tools/set-api-url.mjs updates both, tools/check-bundle.mjs compares them.
+       Nothing inline is allowed (no inline script, style or event handler), and the page may talk only to itself and to the server named in connect-src. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self' https://api.eballotsacdeco.site; base-uri 'none'; form-action 'none'; object-src 'none'; require-trusted-types-for 'script'; trusted-types 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#228b22">
+  <title>E-Voting Registration</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="css/app.css">
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- Replaced as soon as the page starts. If this text stays, the page could not start. -->
+    <p class="boot">Starting the registration desk…<br>If this message stays on screen, open this page from the web address your administrator gave you (not as a file on this PC) and use an up-to-date Chrome or Edge.</p>
+  </div>
+  <!-- The slip is copied here for the printer. Everything else on the page is hidden while printing (see css/app.css). -->
+  <div id="print-root" aria-hidden="true"></div>
+  <noscript>
+    <p class="boot">This page needs JavaScript. Turn it on for this site, then reload.</p>
+  </noscript>
+</body>
+</html>

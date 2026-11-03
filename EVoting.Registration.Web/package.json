@@ -1,0 +1,26 @@
+{
+  "name": "evoting-registration-web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SACDECO eVoting - the Registration desk in a browser. Online-only, username + password, fast search, fast Issue QR, Review records. No ID scan.",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"tests/unit/*.test.mjs\"",
+    "test:e2e": "node tests/e2e/run.mjs",
+    "check": "node tools/check-bundle.mjs",
+    "set-api-url": "node tools/set-api-url.mjs",
+    "test:deploy": "node tests/deploy/check-nginx.mjs",
+    "check-site": "node tools/check-site.mjs"
+  },
+  "devDependencies": {
+    "acorn": "8.19.0",
+    "axe-core": "4.14.0",
+    "jsqr": "1.4.0",
+    "playwright": "1.63.0",
+    "pngjs": "7.0.0"
+  }
+}
