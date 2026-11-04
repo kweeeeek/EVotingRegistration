@@ -22,7 +22,7 @@ import { parseCsp, readApiBaseUrl, readHeaderBlock } from './lib.mjs';
 
 const DEFAULT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const UPLOAD_FILES = ['index.html', 'favicon.svg', 'config.js'];
-export const UPLOAD_FOLDERS = ['css', 'js', 'fonts', 'vendor'];
+export const UPLOAD_FOLDERS = ['css', 'js', 'vendor'];
 const HEALTH_PATH = '/api/v1/health/live';
 
 /** What a browser needs the Content-Type of each kind of file to be. */
@@ -31,7 +31,6 @@ const MIME = [
   [/\.css$/, /^text\/css\b/i, 'text/css'],
   [/\.html$/, /^text\/html\b/i, 'text/html'],
   [/\.svg$/, /^image\/svg\+xml\b/i, 'image/svg+xml'],
-  [/\.woff2$/, /^(font\/woff2|application\/(x-)?font-woff2)\b/i, 'font/woff2'],
 ];
 
 /** One request, answered or not: { status, headers, body } - or { error }. Never throws. */

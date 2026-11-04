@@ -20,7 +20,7 @@ export const NGINX_MUTATIONS = [
   ['D02', 'the security headers are not sent on error pages (no "always" on the policy)', "trusted-types 'none'\" always;", "trusted-types 'none'\";"],
   ['D03', 'no Cache-Control for the page (expires -1 removed)', '    expires -1;\n', ''],
   ['D04', 'no compression (gzip off)', 'gzip on;', 'gzip off;'],
-  ['D05', 'fonts are not kept (location /fonts/ removed)', '    location /fonts/ {\n        expires 1y;\n    }\n', ''],
+  ['D05', 'the style sheet is kept for a year (a new design would not reach the desks)', '    location / {\n        try_files $uri $uri/ =404;\n    }\n', '    location / {\n        try_files $uri $uri/ =404;\n    }\n\n    location /css/ {\n        expires 1y;\n    }\n'],
   ['D06', 'the policy of the host lets the page talk to another server', "connect-src 'self';", "connect-src 'self' https://evil.test;"],
   ['D07', 'http:// is redirected to the front page: path and query are lost', 'return 301 https://$host$request_uri;', 'return 301 https://$host/;'],
   ['D08', "the API's name is not sent in the TLS handshake (proxy_ssl_server_name removed)", '        proxy_ssl_server_name on;\n', ''],

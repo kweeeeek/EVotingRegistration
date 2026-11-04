@@ -29,7 +29,7 @@ import { applyApiUrl } from '../../tools/set-api-url.mjs';
 
 const WEB_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const SAMPLE = path.join(WEB_ROOT, 'docs', 'samples', 'nginx-evoting-registration.conf');
-const COPY = ['index.html', 'favicon.svg', 'config.js', '_headers', 'css', 'js', 'fonts', 'vendor'];
+const COPY = ['index.html', 'favicon.svg', 'config.js', '_headers', 'css', 'js', 'vendor'];
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -242,9 +242,8 @@ try {
   check('the page is "Cache-Control: no-cache"', page.headers['cache-control'] === 'no-cache', page.headers['cache-control']);
   const script = await httpRequest(`${base}/js/api.js`, { insecure: true });
   check('scripts too (an update is picked up at once)', script.headers['cache-control'] === 'no-cache', script.headers['cache-control']);
-  const fontName = (await readFile(path.join(siteDir, 'css', 'app.css'), 'utf8')).match(/fonts\/([a-z0-9.-]+\.woff2)/)[1];
-  const font = await httpRequest(`${base}/fonts/${fontName}`, { insecure: true });
-  check('fonts may be kept for a year', font.status === 200 && font.headers['cache-control'] === 'max-age=31536000', JSON.stringify(font.headers));
+  const sheet = await httpRequest(`${base}/css/app.css`, { insecure: true });
+  check('...and the style sheet (a new design is picked up at once, nothing is kept for a year)', sheet.status === 200 && sheet.headers['cache-control'] === 'no-cache', JSON.stringify(sheet.headers));
   const zipped = await httpRequest(`${base}/js/api.js`, { insecure: true, headers: { 'Accept-Encoding': 'gzip' } });
   check('scripts are compressed when the browser accepts it', zipped.headers['content-encoding'] === 'gzip' && zipped.body.length < script.body.length, `${zipped.headers['content-encoding']} ${zipped.body.length} < ${script.body.length}`);
   const health = await httpRequest(`${base}/api/v1/health/live`, { insecure: true, headers: { 'X-Forwarded-For': '203.0.113.9' } });

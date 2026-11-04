@@ -114,8 +114,8 @@ export async function checkBundle(root) {
     }
   }
 
-  // ── fonts and licences ────────────────────────────────────────────────────────────────────────────
-  for (const lic of ['fonts/LICENSE-OFL.txt', 'vendor/LICENSE-qrcode-generator.txt']) if (!(await exists(path.join(root, lic)))) bad(`${lic} is missing (the licence must travel with the files).`);
+  // ── licences ────────────────────────────────────────────────────────────────────────────
+  for (const lic of ['vendor/LICENSE-qrcode-generator.txt']) if (!(await exists(path.join(root, lic)))) bad(`${lic} is missing (the licence must travel with the files).`);
 
   // ── forbidden browser features ────────────────────────────────────────────────────────────────────
   const acorn = await loadAcorn();

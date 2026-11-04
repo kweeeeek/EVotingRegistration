@@ -36,13 +36,13 @@ test('security: the page is served with the strict headers (policy, no framing, 
   assert.equal(headers['cross-origin-resource-policy'], 'same-origin');
   assert.match(headers['permissions-policy'], /camera=\(\).*microphone=\(\).*geolocation=\(\)/);
   assert.equal(headers['cache-control'], 'no-cache', 'the page itself is always checked with the server, so an update reaches every desk');
-  const font = await page.evaluate(async () => {
-    const link = [...document.styleSheets].length; // the stylesheet has loaded, so the fonts it names can be asked for
-    const r = await fetch('fonts/atkinson-hyperlegible-next-latin-wght-normal.woff2');
-    return { link, status: r.status, cache: r.headers.get('cache-control') };
+  // nothing is kept for a long time, the style sheet included: a new design reaches every desk at the next load
+  const sheet = await page.evaluate(async () => {
+    const r = await fetch('css/app.css');
+    return { status: r.status, cache: r.headers.get('cache-control') };
   });
-  assert.equal(font.status, 200);
-  assert.equal(font.cache, 'public, max-age=31536000, immutable');
+  assert.equal(sheet.status, 200);
+  assert.equal(sheet.cache, 'no-cache');
 });
 
 test('security: the browser itself refuses inline script, innerHTML, other servers, beacons, sockets and form posts', async (session) => {

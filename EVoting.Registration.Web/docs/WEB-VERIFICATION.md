@@ -1,10 +1,10 @@
 # Verification of the Registration web page
 
-What was run, what each number means, how the tests themselves were tested, and what was **not** verified. Written on 3 November 2026 for the folder as delivered.
+What was run, what each number means, how the tests themselves were tested, and what was **not** verified. Written on 4 November 2026 for the folder as delivered.
 
-> **In one paragraph.** The page's logic, its safety rules, its look, its printing and the whole desk flow were run in a Linux sandbox: 593 unit tests (also in seven time zones),
-> 97 tests in a real Chromium 153.0.8010.12 against a stand-in for the API under the page's real Content-Security-Policy, and a deployment test that runs the nginx example for real.
-> The tests were then tested by breaking the code on purpose 48 times: 47 breakages are noticed, one cannot be (explained below). What the sandbox could **not** do is in section 5: the real API
+> **In one paragraph.** The page's logic, its safety rules, its look, its printing and the whole desk flow were run in a Linux sandbox: 614 unit tests (also in seven time zones),
+> 105 tests in a real Chromium 153.0.8010.12 against a stand-in for the API under the page's real Content-Security-Policy, and a deployment test that runs the nginx example for real.
+> The tests were then tested by breaking the code on purpose 62 times: 61 breakages are noticed, one cannot be (explained below). What the sandbox could **not** do is in section 5: the real API
 > and its database, a real web host, a real receipt printer, a kiosk scanner reading a printed slip, any browser but Chromium, IIS. Those are the rows RW-6, RW-7, RW-12 of `../docs/09-REMAINING-RISKS.md` and the rows TW-01 to TW-12 and TW-30 to TW-35 of
 > `../docs/08-DEPLOYMENT-AND-MANUAL-TESTS.md` §14 - do them before the first real election.
 
@@ -13,7 +13,7 @@ What was run, what each number means, how the tests themselves were tested, and 
 | | |
 |---|---|
 | Machine | a Linux sandbox, 2 CPUs, 8 GB |
-| Node.js | 22.23.4 for the runs in this document (the page needs none). `package.json` asks for 22 or newer. Also run on Node 24.22.2: the 593 unit tests, the 97 browser tests, the 27 nginx checks and `npm run check` (all passed). On Node 20.20.2 only the 593 unit tests were run, with the file list given on the command line (all passed): `npm test` itself fails on Node 20, because it hands a file pattern to `node --test`, which Node 20 does not expand (Node 22 and 24 do) |
+| Node.js | 22.23.4 for the runs in this document (the page needs none). `package.json` asks for 22 or newer. Also run on Node 24.22.2: the 614 unit tests, the 105 browser tests, the 27 nginx checks and `npm run check` (all passed). On Node 20.20.2 only the 614 unit tests were run, with the file list given on the command line (all passed): `npm test` itself fails on Node 20, because it hands a file pattern to `node --test`, which Node 20 does not expand (Node 22 and 24 do) |
 | Browser | Chromium 153.0.8010.12 through Playwright 1.63.0, headless |
 | Test tools (dev only, pinned) | acorn 8.19.0 (reads the page's code for the safety checks), axe-core 4.14.0 (accessibility), jsQR 1.4.0 (reads QR codes back from pixels), pngjs 7.0.0, poppler 24.02 `pdftoppm` (renders the print layout) |
 | Web server | nginx 1.24.0 (Ubuntu), OpenSSL 3.0.13 |
@@ -21,7 +21,7 @@ What was run, what each number means, how the tests themselves were tested, and 
 
 ## 2. What the tests are
 
-### 2.1 Unit tests - `npm test` - 593 tests, about 12 seconds, no browser
+### 2.1 Unit tests - `npm test` - 614 tests, about 7 seconds, no browser
 
 | File | Tests | What it proves |
 |---|---|---|
@@ -40,7 +40,7 @@ What was run, what each number means, how the tests themselves were tested, and 
 | `tests/unit/search.test.mjs` | 35 | one search per pause in typing, an old answer never replaces a newer one, narrowing, the 200 cap, short and empty input |
 | `tests/unit/security.test.mjs` | 98 | the page's **own code** is read (not run): forbidden constructs (`innerHTML`, `eval`, `document.write`, `fetch` outside `js/api.js`, and the same by computed names), imports, every address in a string, where the token may be named, the options of every request, the strictness of the policy in `index.html` and `_headers`, the print rules, `package.json` (no runtime dependencies, versions pinned) |
 | `tests/unit/slip.test.mjs` | 25 | the DOM builder (a string never becomes markup) and the content of the slip |
-| `tests/unit/theme.test.mjs` | 25 | the colour is literally forest green (`#228B22`); contrast of text on every surface; focus rings |
+| `tests/unit/theme.test.mjs` | 46 | the colour is literally forest green (`#228B22`), and the only text on a plain green background is the label of a main button; contrast of text on every surface; the face is Segoe UI, two weights, no big type, no font loaded; a text box in focus has a thin green edge and nothing else (not a ring, not a glow, also under the pointer); slim text boxes and slim result rows; no tile above the sign-in |
 | `tests/unit/tools.test.mjs` | 37 | `set-api-url`, `check-bundle` and the code checker, with good and with damaged copies of the folder |
 | `tests/unit/ui-text.test.mjs` | 23 | the words on screen for sign-in failures, the election line and the like |
 
@@ -48,15 +48,15 @@ What was run, what each number means, how the tests themselves were tested, and 
 
 | Zone (`TZ=`) | Offset on the day of the run | Tests | Passed | Failed |
 |---|---|---|---|---|
-| `UTC` | UTC+00:00 | 593 | 593 | 0 |
-| `Asia/Manila` | UTC+08:00 | 593 | 593 | 0 |
-| `America/Los_Angeles` | UTC-08:00 | 593 | 593 | 0 |
-| `Europe/London` | UTC+00:00 | 593 | 593 | 0 |
-| `Asia/Kolkata` | UTC+05:30 | 593 | 593 | 0 |
-| `Pacific/Auckland` | UTC+13:00 | 593 | 593 | 0 |
-| `Pacific/Kiritimati` | UTC+14:00 | 593 | 593 | 0 |
+| `UTC` | UTC+00:00 | 614 | 614 | 0 |
+| `Asia/Manila` | UTC+08:00 | 614 | 614 | 0 |
+| `America/Los_Angeles` | UTC-08:00 | 614 | 614 | 0 |
+| `Europe/London` | UTC+00:00 | 614 | 614 | 0 |
+| `Asia/Kolkata` | UTC+05:30 | 614 | 614 | 0 |
+| `Pacific/Auckland` | UTC+13:00 | 614 | 614 | 0 |
+| `Pacific/Kiritimati` | UTC+14:00 | 614 | 614 | 0 |
 
-### 2.2 Browser tests - `npm run test:e2e` - 97 tests, about 2 minutes
+### 2.2 Browser tests - `npm run test:e2e` - 105 tests, about 2 minutes
 
 Each test starts the page (a copy made with the shipped `tools/set-api-url.mjs`) on an https address of its own, with the headers of `_headers`, and the stand-in server; the browser maps the test names to this machine, accepts the
 run's own certificate and uses no proxy. So the page is loaded as in production: https, the real Content-Security-Policy, the server on **another** address (or the same address through a proxy). The host serves files like a stock nginx or IIS:
@@ -65,15 +65,15 @@ anything that does not end in `.js` is not JavaScript (that found a real bug, se
 | File | Tests | What it proves |
 |---|---|---|
 | `00-smoke` | 2 | it starts, reaches the server, signs in, searches, selects |
-| `10-login` | 11 | right and wrong passwords, the cool-down on *too many attempts*, show / hide password, the server not answering, CORS diagnosed, a server error, a page configured with plain `http://` refusing to start |
+| `10-login` | 13 | right and wrong passwords, the cool-down on *too many attempts*, show / hide password, the server not answering, CORS diagnosed, a server error, a page configured with plain `http://` refusing to start; the foot of the screen says only *Server reachable* and never an address (on two addresses and on one), and the note about the Windows station appears only when the server does not answer |
 | `20-search` | 15 | two characters minimum; **one** search for a whole name typed at once; order; eligibility in words; case and accents; account code; branches outside the election never shown; the 200 cap; only the answer to the **latest** text is shown; keyboard use |
 | `30-issue` | 17 | Enter on one match issues at once and the slip is printed **only after** the server recorded it; double Enter; *Issue again* asks first, default *Cancel*; not eligible / inactive / unknown member; no answer; answer lost but work done (*Check with server* finds it, prints once); 502; time-out; quick issue and auto-print off |
 | `40-records` | 9 | the banner and *Review records*; *Mark as seen*; *Try again*; *Check with server*; reprint says REPRINT; leaving the page with unresolved records asks first |
 | `50-session` | 11 | lock; idle lock after ten minutes; lock shortly before the token expires; a refused token (401) locks and the records survive; sign-out asks; *Offline* refuses Issue and recovers by itself; election changes while working |
 | `60-print` | 7 | only the slip is on the paper; the QR **read back from the printed page** is the account code; the slip fits 80, 72 and 58 mm paper and the QR is not shrunk; long names wrap; accents; REPRINT; Ctrl+P on the desk prints a blank page, never the member list; the slip is removed from the print area after printing and on lock |
 | `70-security` | 11 | the headers; the browser itself refuses inline script, `innerHTML`, other servers, beacons, sockets and form posts; no framing; nothing left in storage and no token on the page; **only two addresses are ever contacted**, the token goes only to the server, no cookie (also one planted for the server's address, and, on one address, for the page's own), no referrer, no secret in any address; redirects are not followed; text from the server is only ever text (names full of HTML and script); the password never in an address; the search box is not remembered; a wrong server address is explained as a policy problem; **no CORS pre-flight on one address** |
-| `80-a11y` | 13 | axe-core (WCAG 2.x A and AA and best practice) on every state of the page; nothing cut off or scrolling sideways from 320 x 640 up to 1920 x 1080; text zoom at 200 %; the answer to a failed Issue is on the screen, not below it |
-| `90-theme` | 1 | the computed colours are literally `rgb(34, 139, 34)` where the design says forest green, and small text never sits directly on it (4.39:1 is only enough for large bold type and shapes) |
+| `80-a11y` | 13 | axe-core (WCAG 2.x A and AA and best practice) on every state of the page - its contrast rule judges everything except the label of the main button, which is checked separately (white on forest green, 4.39:1, never lighter); nothing cut off or scrolling sideways from 320 x 640 up to 1920 x 1080; text zoom at 200 %; the answer to a failed Issue is on the screen, not below it |
+| `90-theme` | 7 | the computed colours are literally `rgb(34, 139, 34)` where the design says forest green, and no text sits directly on it except the label of a main button (white on it is 4.39:1, a conscious exception); nothing above the title of the sign-in; the letters measured on every screen (Segoe UI, weights 400 and 600 only, 12 to 24 px, account codes alone in Consolas, no font file requested); the focus of a text box (1 px green edge, no ring, no glow, also with the pointer over it, and still visible on a high-contrast display); a button reached by keyboard has its ring and one reached by the mouse does not; text boxes 32 px (search box 36 px) and result rows of 40 to 48 px |
 
 What "fast" means here, and what was counted: on one address a search is **one** request and an issue is **one** request, with no pre-flight; across two addresses every distinct search is preceded by its own pre-flight (the test measures it:
 two searches, two pre-flights). A whole name typed at once sends one search, for the final text. The only waiting left at the desk is the server's own answer. Real latency was **not** measured - the stand-in answers at once.
@@ -84,7 +84,7 @@ two searches, two pre-flights). A whole name typed at once sends one search, for
 A small DNS server of the test stands in for the internet's, so the proxy looks the API's **name** up like a production server would (the first version of this test used an address of numbers, which skipped exactly that, and the certificate check below).
 
 * `tools/check-site.mjs` against it finds nothing to fix, compares every file with the folder, and notices that `/api/` is forwarded;
-* http goes to https with path and query; an error page carries the security headers; a missing file is a 404, not the front page; the page and scripts are `no-cache`, fonts are kept for a year; scripts are compressed;
+* http goes to https with path and query; an error page carries the security headers; a missing file is a 404, not the front page; the page, its scripts and its style sheet are `no-cache`; scripts are compressed;
 * `/api/` reaches the server with the path unchanged, after a DNS lookup, **with the API's name in the TLS handshake (SNI)** and as `Host`, and with `X-Forwarded-For` / `X-Forwarded-Proto` set by nginx (a caller's own claim is not passed on);
 * real Chromium through nginx: sign in, search, issue, **one** slip, the server recorded one issuance, the page talked to nobody but its own address, no policy violation, no error, no warning;
 * the log of nginx holds the calls it forwarded and **not what was searched for**;
@@ -95,7 +95,7 @@ Without nginx the test says it was skipped and exits 0. The IIS example is **not
 
 ## 3. How the tests themselves were tested
 
-A test that can never fail proves nothing. So 48 small breakages were made on purpose, one at a time, in a copy of the folder - a safety rule switched off, a rule bent, a colour changed, a line removed - and the unit tests and the browser tests that should
+A test that can never fail proves nothing. So 62 small breakages were made on purpose, one at a time, in a copy of the folder - a safety rule switched off, a rule bent, a colour changed, a line removed - and the unit tests and the browser tests that should
 notice were run on the copy. "Caught" means at least one test failed. The list is in `tests/mutation/mutations.mjs` and runs with `node tests/mutation/run-mutations.mjs` (about 20 minutes on a machine with 2 CPUs; it breaks only copies; see `tests/mutation/README.md`).
 
 | ID | What was broken | Caught by |
@@ -124,7 +124,7 @@ notice were run on the copy. "Caught" means at least one test failed. The list i
 | M23 | format.js: one character is enough to search (MIN_QUERY_LENGTH 2 -> 1) | unit, browser |
 | M24 | search.js: no debounce - every keystroke is sent | unit, browser |
 | M25 | connectivity.js: a "look again" asked while a look is on its way is lost | **not caught - equivalent, see below** |
-| M25b | connectivity.js: a network hint that arrives while a check is on its way is lost | unit |
+| M25b | connectivity.js: a network hint that arrives while a look is on its way is lost | unit |
 | M26 | connectivity.js: scheduling the next look does not drop the one waiting (two loops) | unit |
 | M28 | dom.js: text is inserted as markup (insertAdjacentHTML) | unit, browser |
 | M29 | auth.js: the token is also written to localStorage | unit, browser |
@@ -133,10 +133,10 @@ notice were run on the copy. "Caught" means at least one test failed. The list i
 | M32 | app.css: @page declares a paper size | unit |
 | M33 | app.css: the print area is visible on screen | unit |
 | M34 | app.css: --forest is sea green, not forest green | unit, browser |
-| M35 | app.css: the top bar is the dark green | browser |
-| M36 | app.css: the main buttons are the dark green | browser |
+| M35 | app.css: the thin line across the top of every screen is the dark green | browser |
+| M36 | app.css: the main buttons are the dark green | unit, browser |
 | M37 | index.html: the browser bar colour is another green | unit, browser |
-| M38 | app.css: the small brand tag sits directly on plain forest green (4.39:1) | browser |
+| M38 | app.css: the brand name in the top bar sits directly on plain forest green (4.39:1) in small white type | unit, browser |
 | M39 | index.html: the policy allows inline script ('unsafe-inline') | unit |
 | M40 | _headers: frame-ancestors 'none' removed (the page can be framed) | unit |
 | M41 | _headers: X-Content-Type-Options removed | unit, browser |
@@ -148,14 +148,28 @@ notice were run on the copy. "Caught" means at least one test failed. The list i
 | M49 | main.js: the print area is not cleared after printing (afterprint) | browser |
 | M50 | api.js: with the page and the API on the same address, cookies of that address are sent ('omit' -> 'same-origin') | unit, browser |
 | M51 | records-ui.js: "1 records need attention" (no singular) | browser |
+| M52 | app.css: headings, names and labels are bold (700) again | unit, browser |
+| M53 | app.css: the base type is 16 px again (it is 14 px) | unit, browser |
+| M54 | app.css: the face is not Segoe UI any more | unit, browser |
+| M55 | app.css: a text box in focus gets the heavy green ring around it again | unit, browser |
+| M56 | app.css: a text box in focus gets a green glow around it again | unit, browser |
+| M57 | app.css: the pointer over a text box in focus turns its green edge grey (the focus rule is less specific than the hover rule) | unit, browser |
+| M58 | login.js + main.js: the address of the server is shown on the sign-in screen again | browser |
+| M59 | login.js: the "use the Windows Registration station" note is shown while the server answers | browser |
+| M60 | app.css: the green tile with a tick is back above the title of the sign-in | unit, browser |
+| M61 | app.css: the names in the search results are in 16 px again | unit, browser |
+| M62 | app.css: the rows of the search results are tall again (62 px instead of 45) | unit, browser |
+| M63 | app.css: the text boxes are 40 px high again (they are 32 px) | unit, browser |
+| M64 | app.css: the type in the search box is 16 px again (it is 14 px) | unit, browser |
+| M65 | app.css: the label of the main button is pale green on forest green (the accessibility audit, which leaves the main button out of the contrast rule, must still object) | browser |
 
-**47 of 48 are caught** - 19 by the unit tests alone, 7 by the browser tests alone, 21 by both.
+**61 of 62 are caught** - 19 by the unit tests alone, 8 by the browser tests alone, 34 by both.
 
 * **M25 is not caught and cannot be.** It removes `if (force) lookAgain = true;` from the top of `heartbeat()`. That line is a second lock for a case that cannot happen: the page keeps one timer, so `heartbeat()` is never entered while a check is on its
   way. The change has no visible effect (M25b, the same idea on the path that *can* happen, is caught). It is left in on purpose.
 * **Two of the first run's results were findings**, both fixed and repeated: M22 *survived* (a late answer could be remembered as the base for narrowing the next search - no test looked there; a test now does), and M01 was caught by the unit tests but not by the
   browser test that was meant to catch it, because that test could never fail (a cookie that the browser would never send from another site anyway). The cookie is now one that is sent, and a second test covers the page's own address.
-* The same method was applied to the nginx example: 17 breakages of the configuration (a path on `proxy_pass`, no `always` on a header, no `expires`, no `gzip`, no fonts rule, a wider policy, a redirect without the path, no SNI, no `Host`, no
+* The same method was applied to the nginx example: 17 breakages of the configuration (a path on `proxy_pass`, no `always` on a header, no `expires`, no `gzip`, a style sheet kept for a year, a wider policy, a redirect without the path, no SNI, no `Host`, no
   certificate check, no resolver, the client's own `X-Forwarded-For` passed on, a missing header, a front-page fallback, no `/api/` rule, a wrong `Referrer-Policy`), 17 noticed. Run with `node tests/mutation/run-nginx-mutations.mjs`.
 
 **What this does not show.** The breakages are the ones the author thought of. They show that the tests look at the places they should; they do not show that no other fault exists. Some changes cannot be told from the original by any test (M25 is one). There is no code-coverage figure.
@@ -167,6 +181,9 @@ notice were run on the copy. "Caught" means at least one test failed. The list i
 3. **A page that would not start on a stock nginx or IIS.** The vendored QR library was a file ending in `.mjs`, which their MIME tables do not know as JavaScript; the browser then refuses to run it and the page stays blank. Found by making the test host as strict as nginx. The file is now `vendor/qrcode.js`, `check-bundle` refuses any `.mjs` script, and `check-site` checks the type of every file on the real host.
 4. **A browser test that could not fail** (the cookie check, M01), and **a unit-test gap** (M22) - found by section 3, fixed.
 5. **The nginx example first trusted whatever answered for the API** (nginx does not check an upstream certificate unless told to) and compressed scripts only on the nginx versions that call them `application/javascript`. It now verifies the API's certificate and handles both names. The deployment test first ran against an address of numbers, which could not have found either; it now uses a name, a DNS server and a stranger's certificate.
+6. **A text box in focus lost its green edge while the pointer was over it** (the redesign of 4 November): the rule for a hovered box was more specific than the one for a focused box, so a box that had just been clicked looked as if it had no focus. Found by looking at a picture taken after a click; the browser test now leaves the pointer over the box, and M57 puts the fault back.
+7. **A browser test that depended on the day it was run**: `issue: the member list shows the new "Issued" time` expected the date `03 Nov 2026` - the day it was written - and failed on 4 November. The date is now taken from the clock that the stand-in server used.
+8. **The browser-test runner did not return for up to 90 seconds after its last test**: `tests/e2e/run.mjs` left the time-out timer of the last test running, so the process stayed alive after it had printed `105 passed`. Found when a run was timed; the timer is now cleared and the process ends within a second or two of the summary.
 
 ## 5. What was not verified
 
@@ -179,6 +196,7 @@ notice were run on the copy. "Caught" means at least one test failed. The list i
 | **Other browsers**: Edge, Firefox, Safari; other versions of Chrome | only Chromium 153.0.8010.12 ran; Trusted Types is Chromium-only | TW-02, TW-03 (RW-7) |
 | **Real people**: the pace of a queue, the wording to a clerk, the keyboard habits | no one used it | a rehearsal day (`08` TE-08) with the page at the desks |
 | The **speed** on the real network | nothing was timed against a real server | TW-06, TW-07 (note the times) |
+| **Segoe UI itself, and Consolas** | they are Windows fonts and cannot be installed in the sandbox: every picture and every layout test used **Open Sans** in their place (it is *wider* than Segoe UI, so the layout was tried with the wider letters; on Windows the same text takes a little less room). How the page looks with the real fonts, at 125 % or 150 % display scaling, was not seen. On a Mac or a phone the system's own font is shown | look at the page once on a Windows PC at the scaling of the desks (TW-02) |
 | The **Windows programs** | untouched by this work; they were not rebuilt | `07` §7 |
 
 ## 6. Run it again

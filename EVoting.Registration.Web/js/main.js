@@ -130,7 +130,7 @@ export function start({ config: override, root = document.getElementById('app') 
 
   const confirm = createConfirmDialog();
   const lockDialog = createLockDialog({ onUnlock: (password) => auth.unlock(password).then(describeUnlock), onSignOut: () => signOut() });
-  const login = createLoginView({ onSignIn, serverLabel: sameOrigin ? 'this site' : new URL(base).host });
+  const login = createLoginView({ onSignIn });
   const topbar = createTopbar({ onRefresh: () => refreshEvent({ manual: true }), onLock: () => auth.lock('manual'), onSignOut: () => signOut() });
   const banners = createBannerList({ onAction: onBannerAction, onDismiss: (key) => { app.dismissed.add(key); render(); } });
   const searchPanel = createSearchPanel({

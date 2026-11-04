@@ -72,10 +72,33 @@ test('login: before anybody types, the page says whether the server answers', as
   await eventually(async () => (await serverState(page).textContent()).trim() === 'reachable', { message: 'the server to be reachable' });
 });
 
+for (const mode of ['cross', 'same']) {
+  test(`login: the foot of the screen says only "Server reachable" - never where the server is (page and server on ${mode === 'same' ? 'one address' : 'two addresses'})`, async (session) => {
+    const { page, site } = session;
+    await eventually(async () => (await serverState(page).textContent()).trim() === 'reachable', { message: 'the server to be reachable' });
+    const foot = (await page.locator('.login-server').innerText()).replace(/\s+/g, ' ').trim();
+    assert.equal(foot, 'Server reachable');
+    // no address anywhere on the screen - not in the text, not in a tooltip or a hidden piece of markup
+    const shown = await page.locator('.login-panel').innerText();
+    const markup = await page.locator('.login-panel').evaluate((el) => el.outerHTML);
+    const addresses = ['api.test', 'registration.test', 'this site', String(site.port)];
+    if (site.apiUrl) addresses.push(new URL(site.apiUrl).port);
+    for (const address of addresses) {
+      assert.ok(!shown.includes(address), `the sign-in screen shows "${address}"`);
+      assert.ok(!markup.includes(address), `the markup of the sign-in screen holds "${address}"`);
+    }
+    // what to do when the server is down is said only when it is down
+    assert.equal(await page.locator('.login-note').isVisible(), false, 'the Windows-station note is shown while the server answers');
+  }, { mode });
+}
+
 test('login: server switched off - the screen says not reachable and sign-in explains it', async ({ page, stub }) => {
   await stub.close();
   await page.reload();
   await eventually(async () => (await serverState(page).textContent()).trim() === 'not reachable', { message: 'not reachable' });
+  assert.equal((await page.locator('.login-server').innerText()).replace(/\s+/g, ' ').trim(), 'Server not reachable');
+  assert.equal(await page.locator('.login-note').isVisible(), true, 'the note about what to do instead');
+  assert.match(await page.locator('.login-note').innerText(), /use the Windows Registration station/);
   assert.ok((await bannerTitles(page)).some((t) => /Offline/.test(t)), 'an Offline notice');
   await signIn(page);
   await eventually(async () => /could not be reached/.test(await page.locator('.login .form-error').textContent()), { message: 'a reachability message' });

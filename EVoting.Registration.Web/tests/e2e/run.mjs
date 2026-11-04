@@ -34,11 +34,14 @@ for (const t of selected) {
   n++;
   const t0 = Date.now();
   let session;
+  let timer;
   try {
     session = await lab.open(t.options);
     await Promise.race([
       t.fn(session, lab),
-      new Promise((_, reject) => setTimeout(() => reject(new Error(`test took longer than ${TIMEOUT_MS / 1000} s`)), TIMEOUT_MS)),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`test took longer than ${TIMEOUT_MS / 1000} s`)), TIMEOUT_MS);
+      }),
     ]);
     console.log(`  ok   ${String(n).padStart(3)}/${selected.length}  ${t.name}  (${Date.now() - t0} ms)`);
   } catch (err) {
@@ -52,6 +55,7 @@ for (const t of selected) {
       }
     }
   } finally {
+    clearTimeout(timer); // a time-out that is still waiting would keep this process alive for up to TIMEOUT_MS after the summary
     if (session) await session.close();
   }
 }

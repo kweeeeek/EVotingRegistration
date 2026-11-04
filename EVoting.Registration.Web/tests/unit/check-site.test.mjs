@@ -19,7 +19,7 @@ const PAGE = 'https://registration.example.org';
 const API = 'https://api.example.com';
 const quiet = () => {};
 
-const TYPES = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8', '.svg': 'image/svg+xml', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8' };
+const TYPES = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8' };
 
 async function listFiles(dir, rel = '') {
   const out = [];
@@ -40,7 +40,7 @@ async function listFiles(dir, rel = '') {
 async function makeHost(dir, { api = '' } = {}) {
   assert.equal(await setApiUrl([api, '--dir', dir], { log: quiet }), 0);
   const files = new Map();
-  for (const rel of ['index.html', 'favicon.svg', 'config.js', ...(await listFiles(dir, 'css')), ...(await listFiles(dir, 'js')), ...(await listFiles(dir, 'fonts')), ...(await listFiles(dir, 'vendor'))]) {
+  for (const rel of ['index.html', 'favicon.svg', 'config.js', ...(await listFiles(dir, 'css')), ...(await listFiles(dir, 'js')), ...(await listFiles(dir, 'vendor'))]) {
     files.set(`/${rel}`, await readFile(path.join(dir, rel)));
   }
   files.set('/', files.get('/index.html'));
@@ -191,13 +191,12 @@ describe('the files', () => {
     });
   });
 
-  test('a font or a style sheet with the wrong type', async () => {
+  test('a style sheet with the wrong type', async () => {
     await withBundleCopy(async (copy) => {
       const host = await makeHost(copy.dir);
-      host.typeOf = (p) => (p.endsWith('.woff2') || p.endsWith('.css') ? 'text/plain' : (TYPES[path.extname(p)] ?? 'text/plain'));
+      host.typeOf = (p) => (p.endsWith('.css') ? 'text/plain' : (TYPES[path.extname(p)] ?? 'text/plain'));
       const r = await inspect(copy.dir, host);
       assert.ok(has(r.problems, /^css\/app\.css: served as "text\/plain", but a browser needs text\/css\./), r.problems.join('\n'));
-      assert.ok(has(r.problems, /^fonts\/.*\.woff2: served as "text\/plain", but a browser needs font\/woff2\./), r.problems.join('\n'));
     });
   });
 

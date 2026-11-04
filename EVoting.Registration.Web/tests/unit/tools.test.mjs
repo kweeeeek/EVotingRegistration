@@ -55,9 +55,9 @@ describe('reading a Content-Security-Policy', () => {
   });
 
   test('readHeaderBlock: the headers of one block of _headers, names in lower case; comments and blank lines ignored; {} for no such block', async () => {
-    const text = '# a comment\n\n/*\n  X-Frame-Options: DENY\n  Cache-Control: no-cache\n\n  # another\n  Content-Security-Policy: default-src \'none\'; img-src \'self\'\n\n/fonts/*\n  Cache-Control: public, max-age=31536000, immutable\n';
+    const text = '# a comment\n\n/*\n  X-Frame-Options: DENY\n  Cache-Control: no-cache\n\n  # another\n  Content-Security-Policy: default-src \'none\'; img-src \'self\'\n\n/static/*\n  Cache-Control: public, max-age=31536000, immutable\n';
     assert.deepEqual(readHeaderBlock(text, '/*'), { 'x-frame-options': 'DENY', 'cache-control': 'no-cache', 'content-security-policy': "default-src 'none'; img-src 'self'" });
-    assert.deepEqual(readHeaderBlock(text, '/fonts/*'), { 'cache-control': 'public, max-age=31536000, immutable' });
+    assert.deepEqual(readHeaderBlock(text, '/static/*'), { 'cache-control': 'public, max-age=31536000, immutable' });
     assert.deepEqual(readHeaderBlock(text, '/nothing/*'), {});
     assert.deepEqual(readHeaderBlock('', '/*'), {});
     assert.equal(readHeaderBlock((await real()).headers, '/*')['x-frame-options'], 'DENY');
@@ -347,8 +347,8 @@ describe('check-bundle: is the folder ready to upload?', () => {
       assert.ok(has(await checkBundle(copy.dir), /^js\/format\.js: imports "\.\/nope\.js", which does not exist\.$/));
     });
     await withBundleCopy(async (copy) => {
-      await copy.append('css/app.css', '\n.x { background: url(fonts/gone.woff2); }\n');
-      assert.ok(has(await checkBundle(copy.dir), /^css\/app\.css: "fonts\/gone\.woff2" does not exist\.$/));
+      await copy.append('css/app.css', '\n.x { background: url(img/gone.png); }\n');
+      assert.ok(has(await checkBundle(copy.dir), /^css\/app\.css: "img\/gone\.png" does not exist\.$/));
     });
   });
 
@@ -366,8 +366,8 @@ describe('check-bundle: is the folder ready to upload?', () => {
     });
   });
 
-  test('the licences must travel with the fonts and the QR library', async () => {
-    for (const licence of ['fonts/LICENSE-OFL.txt', 'vendor/LICENSE-qrcode-generator.txt']) {
+  test('the licence must travel with the QR library', async () => {
+    for (const licence of ['vendor/LICENSE-qrcode-generator.txt']) {
       await withBundleCopy(async (copy) => {
         await rm(copy.file(licence));
         assert.ok(has(await checkBundle(copy.dir), new RegExp(`^${licence.replace(/[.]/g, '\\.')} is missing`)), licence);

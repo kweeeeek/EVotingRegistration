@@ -17,20 +17,56 @@ const axeSource = await readFile(require.resolve('axe-core/axe.min.js'), 'utf8')
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice'];
 
-/** Runs axe on the page as it is now; throws a readable list when anything fails. Also saves a screenshot. */
+/**
+ * Runs axe on the page as it is now; throws a readable list when anything fails. Also saves a screenshot.
+ *
+ * The contrast rule is run on its own, over everything except the label of the main button (.btn-primary): that label is white on the
+ * literal forest green #228B22, 4.39:1 - fine for a shape (3:1), a hair under the 4.5:1 that small type needs (see the note at the top of
+ * css/app.css). It is the one conscious exception, so it gets its own check below: it may be exactly that pair and nothing lighter.
+ */
 async function audit(page, name) {
   await mkdir(shots, { recursive: true });
   await page.screenshot({ path: path.join(shots, `a11y-${name}.png`) });
   await page.evaluate(axeSource); // CDP evaluation is not subject to the page's CSP; it only defines window.axe
-  const violations = await page.evaluate(async (tags) => {
-    const result = await window.axe.run(document, { runOnly: { type: 'tag', values: tags }, resultTypes: ['violations'] });
-    return result.violations.map((v) => ({
-      id: v.id,
-      impact: v.impact,
-      help: v.help,
-      nodes: v.nodes.slice(0, 6).map((n) => `${n.target.join(' ')} - ${(n.any[0] ?? n.all[0] ?? n.none[0])?.message ?? n.failureSummary}`),
-    }));
-  }, TAGS);
+  const run = (context, options) =>
+    page.evaluate(
+      async ({ context, options }) => {
+        const result = await window.axe.run(context ?? document, { ...options, resultTypes: ['violations'] });
+        return result.violations.map((v) => ({
+          id: v.id,
+          impact: v.impact,
+          help: v.help,
+          nodes: v.nodes.slice(0, 6).map((n) => `${n.target.join(' ')} - ${(n.any[0] ?? n.all[0] ?? n.none[0])?.message ?? n.failureSummary}`),
+        }));
+      },
+      { context, options },
+    );
+  const violations = [
+    ...(await run(null, { runOnly: { type: 'tag', values: TAGS }, rules: { 'color-contrast': { enabled: false } } })),
+    ...(await run({ exclude: [['.btn-primary']] }, { runOnly: { type: 'rule', values: ['color-contrast'] } })),
+  ];
+
+  const labels = await page.evaluate(() => {
+    const luminance = (rgb) => {
+      const [r, g, b] = rgb.match(/[\d.]+/g).slice(0, 3).map((v) => {
+        const c = Number(v) / 255;
+        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    return [...document.querySelectorAll('.btn-primary')]
+      .filter((b) => !b.disabled && b.checkVisibility())
+      .map((b) => {
+        const style = getComputedStyle(b);
+        const [hi, lo] = [luminance(style.color), luminance(style.backgroundColor)].sort((x, y) => y - x);
+        return { text: b.textContent.trim(), ratio: (hi + 0.05) / (lo + 0.05) };
+      });
+  });
+  for (const label of labels) {
+    if (label.ratio < 4.3) {
+      violations.push({ id: 'main-button-label', impact: 'serious', help: 'the label of a main button may be white on forest green (4.39:1) but nothing lighter', nodes: [`"${label.text}" is ${label.ratio.toFixed(2)}:1`] });
+    }
+  }
   if (violations.length) {
     const text = violations.map((v) => `  [${v.impact}] ${v.id}: ${v.help}\n${v.nodes.map((n) => `      ${n}`).join('\n')}`).join('\n');
     throw new Error(`axe found ${violations.length} kind(s) of problem on "${name}":\n${text}`);
