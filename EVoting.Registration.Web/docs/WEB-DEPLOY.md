@@ -44,7 +44,7 @@ The pre-flight is how browsers work (the Fetch standard), not something measured
 
    `set-api-url` changes `apiBaseUrl` in `config.js` **and** the `connect-src` of the Content-Security-Policy in `index.html` and `_headers` - three places that must name the same
    address, because a page may only talk to the addresses its policy lists. Never edit those by hand.
-3. **Upload exactly** `index.html`, `config.js`, `_headers`, `favicon.svg` and the folders `css/`, `js/`, `vendor/`, `fonts/`. Not `tests/`, `tools/`, `docs/`, `node_modules/`, `package*.json`.
+3. **Upload exactly** `index.html`, `config.js`, `_headers`, `favicon.svg` and the folders `css/`, `js/`, `vendor/`. Not `tests/`, `tools/`, `docs/`, `node_modules/`, `package*.json`.
    (`_headers` is read by Netlify and Cloudflare Pages only; on nginx or IIS it does nothing, and it is harmless there.)
 4. **Configure the host**: the headers of section 6 and, for option A, the proxy. Use the nginx example (section 3) or the IIS example (section 4) as the starting point.
 5. **Check it from outside** - section 7. Do not skip this: it finds the mistakes people really make (a script served with the wrong type, a header that nginx silently dropped, a proxy that points nowhere).
@@ -103,10 +103,6 @@ server {
         try_files $uri $uri/ =404;
     }
 
-    location /fonts/ {
-        expires 1y;
-    }
-
     # The API, on this same address: the page asks for /api/v1/..., the browser sees one site, so there is no CORS and no pre-flight.
     location /api/ {
         resolver 1.1.1.1 8.8.8.8 valid=60s;                                # CHANGE if these DNS servers cannot be reached from this server (add ipv6=off if it has no IPv6 route)
@@ -126,7 +122,7 @@ server {
 ```
 
 `tests/deploy/check-nginx.mjs` (`npm run test:deploy`) takes this very file, changes only the addresses and paths, starts a real nginx 1.24 with it in front of a stand-in API, and checks:
-`tools/check-site.mjs` finds nothing to fix; http is sent to https; error pages carry the security headers; the page and scripts are `no-cache`, fonts are kept for a year; scripts are compressed;
+`tools/check-site.mjs` finds nothing to fix; http is sent to https; error pages carry the security headers; the page, its scripts and its style sheet are `no-cache`; scripts are compressed;
 `/api/` reaches the server with the path unchanged; and Chromium can sign in, search, issue a QR and print a slip through it, without a single policy violation, error or warning.
 It also checks the opposite: after putting an `add_header` inside a `location` (the mistake below), `check-site` complains.
 
@@ -134,7 +130,7 @@ It also checks the opposite: after putting an `add_header` inside a `location` (
 
 * `return 301 https://$host$request_uri;` - anybody who types `http://` lands on https.
 * `add_header ... always;` - the security headers (section 6). `always` makes them appear on error pages too.
-* `expires -1;` sends `Cache-Control: no-cache`: the browser asks at every load whether the page changed (a cheap *304* when it did not). `location /fonts/ { expires 1y; }` keeps the fonts for a year.
+* `expires -1;` sends `Cache-Control: no-cache`: the browser asks at every load whether the page changed (a cheap *304* when it did not). Nothing is kept for a year: the page has no font to keep (it is set in Segoe UI, which every Windows PC already has), and a new design must reach every desk at the next load.
 * `gzip` - the scripts and styles travel compressed.
 * `location /api/` - the reverse proxy for option A. Delete this block for option B.
   * `set $evoting_api ...; proxy_pass $evoting_api;` with a `resolver` line: nginx then looks the API's name up again every 60 seconds instead of once at start-up - the API runs on a
@@ -187,9 +183,6 @@ IIS Manager > the server (top node) > *Application Request Routing Cache* > *Ser
     </rewrite>
 
     <staticContent>
-      <!-- Older IIS has no type for .woff2: the browser then refuses the font. -->
-      <remove fileExtension=".woff2" />
-      <mimeMap fileExtension=".woff2" mimeType="font/woff2" />
       <!-- "Cache-Control: no-cache": the page and its scripts are re-checked at every load, so an update is picked up at once. -->
       <clientCache cacheControlMode="DisableCache" />
     </staticContent>
@@ -208,15 +201,6 @@ IIS Manager > the server (top node) > *Application Request Routing Cache* > *Ser
     </httpProtocol>
 
   </system.webServer>
-
-  <!-- The fonts never change under the same name: keep them for a year. -->
-  <location path="fonts">
-    <system.webServer>
-      <staticContent>
-        <clientCache cacheControlMode="UseMaxAge" cacheControlMaxAge="365.00:00:00" />
-      </staticContent>
-    </system.webServer>
-  </location>
 </configuration>
 ```
 
@@ -226,7 +210,6 @@ Things to watch (none of this could be tried here):
 * If `/api/v1/health/live` answers *404* or an error page from the hosting platform, ARR is probably sending the wrong `Host` name: the platform needs `api.eballotsacdeco.site`, not the name of your page.
   ARR's `<proxy>` element has a `preserveHostHeader` setting; it must be `false` (from the documentation: that is its default).
 * *502* from `/api/` usually means the proxy is not enabled (step above) or the server cannot reach the internet.
-* Older versions of IIS have no type for `.woff2`: the example adds it. If the fonts do not load, `check-site` says so.
 * To stay on option B with IIS, delete the rule *API on this address* and use `node tools/set-api-url.mjs https://api.eballotsacdeco.site`; also change `connect-src 'self'` in the header to the same
   value as in `_headers` (the unit test and `check-site` tell you when they differ).
 
@@ -302,7 +285,8 @@ What the desk shows, what it means, what to do.
 | On the screen | Meaning | What to do |
 |---|---|---|
 | White page, nothing happens | A script was not run: wrong type from the host, or blocked. The browser console (F12) says *Refused to execute script ... MIME type* or *Refused to ... Content Security Policy*. | `check-site`: it names the file and the type. Fix the host's MIME table. |
-| Page without its look, or fonts that look different | `css/` or `fonts/` not uploaded, or `.woff2` not in the host's MIME table. | `check-site`. |
+| Page without its look | `css/` not uploaded, or `.css` not in the host's MIME table. | `check-site`. |
+| Letters that are not Segoe UI | The PC is not a Windows PC (Segoe UI is Windows' own font; a Mac, phone or Linux PC shows its own system font instead). Nothing to fix: the page works the same. | - |
 | *The server could not be reached. Check the internet connection of this PC.* | No answer from the server at all: PC offline, DNS, firewall, or (option A) the proxy does not answer at all. | Open `https://api.eballotsacdeco.site/api/v1/health/live` in the browser of that PC: a short answer instead of an error page means that PC is fine. |
 | *The server could not complete the request (HTTP 502)* or *504* | Option A: the web server cannot reach the API (DNS `resolver`, firewall, API down). | On the web server: `curl -I https://api.eballotsacdeco.site/api/v1/health/live`. nginx: `/var/log/nginx/error.log`. |
 | *...the browser blocked the connection (CORS): the server does not list this site...* | Option B: `EVOTING_ALLOWED_ORIGINS` does not contain the page's address exactly (section 6). | Fix the variable (no space, no trailing slash, `https://`); the API restarts to read it. |

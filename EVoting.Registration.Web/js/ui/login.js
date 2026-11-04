@@ -1,20 +1,23 @@
 // The sign-in screen: user name + password (registration-login). Nothing about the person is remembered by the browser page.
 
 import { Reachability } from '../connectivity.js';
-import { h, setText } from './dom.js';
+import { h, setHidden, setText } from './dom.js';
 
 /**
  * @param {object} options
  * @param {(username: string, password: string) => Promise<{ok: boolean, message?: string, cooldownSeconds?: number}>} options.onSignIn
- * @param {string} options.serverLabel   the host the page talks to, for the person to see
+ *
+ * The screen says whether the server answers and nothing more about it: the address of the server is not shown to whoever stands
+ * in front of the desk.
  */
-export function createLoginView({ onSignIn, serverLabel }) {
+export function createLoginView({ onSignIn }) {
   let userEl;
   let passEl;
   let errorEl;
   let submitBtn;
   let toggleBtn;
   let serverEl;
+  let noteEl;
   let busy = false;
   let cooldownTimer = null;
   let cooldownUntil = 0;
@@ -102,12 +105,11 @@ export function createLoginView({ onSignIn, serverLabel }) {
       h(
         'p',
         { class: 'login-server', role: 'status' },
-        h('span', { class: 'login-server-label' }, 'Server '),
-        h('span', { class: 'login-server-host' }, serverLabel),
-        ' ',
+        h('span', { class: 'login-server-label' }, 'Server'),
         (serverEl = h('span', { class: 'login-server-state' }, 'checking…')),
       ),
-      h('p', { class: 'login-note' }, 'This browser version needs the internet. When it is down, use the Windows Registration station.'),
+      // what to do instead is said only when it is needed: while the server does not answer
+      (noteEl = h('p', { class: 'login-note', hidden: true }, 'This browser version needs the internet. When it is down, use the Windows Registration station.')),
     ),
   );
 
@@ -153,6 +155,7 @@ export function createLoginView({ onSignIn, serverLabel }) {
         c.status === Reachability.Online ? 'reachable' : c.status === Reachability.Offline ? 'not reachable' : 'checking…';
       setText(serverEl, text);
       serverEl.dataset.state = c.status;
+      setHidden(noteEl, c.status !== Reachability.Offline);
     },
     /** Forgets what was typed (the page is being left). */
     clear() {

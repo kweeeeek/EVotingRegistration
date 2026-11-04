@@ -11,7 +11,7 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 export async function makeBundleCopy() {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'evoting-bundle-'));
   for (const name of ['config.js', 'index.html', '_headers', 'favicon.svg']) await cp(path.join(ROOT, name), path.join(dir, name));
-  for (const name of ['css', 'js', 'vendor', 'fonts']) await cp(path.join(ROOT, name), path.join(dir, name), { recursive: true });
+  for (const name of ['css', 'js', 'vendor']) await cp(path.join(ROOT, name), path.join(dir, name), { recursive: true });
   return {
     dir,
     file: (name) => path.join(dir, name),

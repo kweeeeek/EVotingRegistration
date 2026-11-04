@@ -361,13 +361,10 @@ describe('the other response headers (_headers)', () => {
     for (const feature of ['camera=()', 'microphone=()', 'geolocation=()', 'payment=()', 'usb=()']) assert.ok(all.get('permissions-policy').includes(feature), feature);
   });
 
-  test('only the fonts may be kept for a long time (a changed script or page is picked up at the next load)', async () => {
+  test('nothing is kept for a long time (a changed script, page or style sheet is picked up at the next load)', async () => {
     const blocks = blocksOf(await read('_headers'));
-    assert.match(blocks.get('/fonts/*').get('cache-control'), /immutable/);
-    for (const [route, headers] of blocks) {
-      if (route === '/fonts/*') continue;
-      assert.doesNotMatch(headers.get('cache-control') ?? '', /max-age=[1-9]/, route);
-    }
+    assert.deepEqual([...blocks.keys()], ['/*'], 'one block for every file: the page has no file that may be kept');
+    for (const [route, headers] of blocks) assert.doesNotMatch(headers.get('cache-control') ?? '', /max-age=[1-9]/, route);
   });
 });
 

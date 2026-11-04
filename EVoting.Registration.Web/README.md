@@ -2,7 +2,7 @@
 
 The Registration desk as a web page. Staff sign in with a **user name and password**, find a member, press **Enter**, and the slip with the member's QR comes
 out of the receipt printer. The page talks to the eVoting API (`https://api.eballotsacdeco.site`) and to nothing else. Its colour is forest green
-(the CSS colour `forestgreen`, `#228B22`).
+(the CSS colour `forestgreen`, `#228B22`) and its letters are Segoe UI.
 
 **Online-only.** When the server cannot be reached the desk says so and refuses to issue: a QR is never issued, and a slip is never printed, unless the
 server has recorded it. (The Windows program `EVoting.Registration` keeps its offline outbox for places with an unreliable network; the two can be used side by
@@ -11,9 +11,9 @@ side, and a QR issued by either is the same QR to the kiosk.)
 **Not in this version:** ID scanning (camera and text recognition), the saved roster and the outbox. **Kept:** *Review records*, the list of what was issued in
 the session and what needs attention.
 
-> **What was and was not verified.** The page's logic, its safety rules and the whole desk flow were tested in a Linux sandbox: 593 unit tests (also run in seven time zones),
-> 97 tests in a real Chromium 153 against a stand-in for the API, under the real Content-Security-Policy, and the nginx example of the deployment guide was run on a real nginx 1.24
-> (27 checks). The tests themselves were tested by breaking the page on purpose 48 times: 47 were noticed, one change cannot be seen by anybody. `docs/WEB-VERIFICATION.md` has the numbers and what
+> **What was and was not verified.** The page's logic, its safety rules and the whole desk flow were tested in a Linux sandbox: 614 unit tests (also run in seven time zones),
+> 105 tests in a real Chromium 153 against a stand-in for the API, under the real Content-Security-Policy, and the nginx example of the deployment guide was run on a real nginx 1.24
+> (27 checks). The tests themselves were tested by breaking the page on purpose 62 times: 61 were noticed, one change cannot be seen by anybody. `docs/WEB-VERIFICATION.md` has the numbers and what
 > each test proves. What the sandbox could **not** do: talk to the real server at `api.eballotsacdeco.site` and its MySQL database, run on the real web host with its real headers, print on a real
 > receipt printer or read the printed QR with the kiosk's scanner, or run in any browser other than Chromium. Those are rows TW-xx of the rehearsal checklist
 > (`../docs/08-DEPLOYMENT-AND-MANUAL-TESTS.md` §14) - do them before the first real election.
@@ -54,6 +54,15 @@ reloading while records still need attention makes the browser ask first: the li
 **The connection** is shown at the top: *Connecting…*, *Online*, *Online - server problem* (the server answered with an error) or *Offline*. While it is *Offline* the
 Issue button is off and says why; the page checks every 30 seconds and recovers by itself.
 
+## The look
+
+* **Letters:** Segoe UI - the font Windows itself uses - at 14 px, in two weights only: regular, and semibold for names, titles and the main button. A PC that is not a Windows PC (a Mac, a phone) shows its own system font instead and the page works the same. Nothing is downloaded, so there is no font to upload.
+* **Colour:** white cards on a soft grey-green desk; forest green (`#228B22`) marks what is the brand (the mark and the thin line across the top), what can be pressed (the main button) and what is chosen (the selected row).
+* **One conscious exception.** White on `#228B22` is 4.39:1: fine for shapes, a hair under the 4.5:1 that small type needs. Forest green is therefore a background for exactly one kind of text, the label of a main button (for example *Sign in*, *Issue QR & print slip*, *Unlock*); every other text is near-black or deep green on white or a pale tint, and tests fail if that changes. For a stricter reading, `--forest-button` in `css/app.css` is the one line to darken (for example to `#1c7a1c`, 5.5:1).
+* **Slim fields and rows:** text boxes are 32 px high with 13 px type (the search box, typed in all day, 36 px with 14 px type), and a box in focus only turns its thin edge forest green - no heavy ring, no glow; the rows of the search results are about 45 px high with the name in 13 px.
+* **The sign-in** is the name of the desk, two boxes and the button, and under them one line that says whether the server answers (*Server ● reachable*). It never shows the address of the server; the sentence about using the Windows Registration station instead appears only when the server does not answer.
+* **Account codes** are set in Consolas (the fixed-width font of Windows, with a slashed zero) so that 0/O and 1/l/I cannot be mistaken when a code is read out across a desk; `--font-code` in `css/app.css` is the one line to change that.
+
 ## Setting it up (the administrator)
 
 You need: a web address with https for this page, a browser (Chrome or Edge, current), and the address of the API. Details, with examples for nginx and IIS, are in
@@ -65,7 +74,7 @@ node tools/set-api-url.mjs https://api.eballotsacdeco.site     # or: the API is 
 node tools/check-bundle.mjs                                    # says "OK - the folder is ready to upload", or what is wrong
 ```
 
-Then upload **exactly** `index.html`, `config.js`, `_headers`, `favicon.svg`, `css/`, `js/`, `vendor/` and `fonts/`. Do **not** upload `tests/`, `tools/`, `docs/`,
+Then upload **exactly** `index.html`, `config.js`, `_headers`, `favicon.svg`, `css/`, `js/` and `vendor/`. Do **not** upload `tests/`, `tools/`, `docs/`,
 `node_modules/` or `package*.json`. Then look at the host from outside:
 
 ```bash
@@ -131,8 +140,8 @@ way. Rows TW-30 to TW-35 check both on the real printer and a real kiosk.
 
 ```bash
 npm ci                 # once: the test tools only (acorn, axe-core, jsqr, playwright, pngjs) - the page itself has no dependencies
-npm test               # 593 unit tests, about 12 seconds, no browser
-npm run test:e2e       # 97 tests in Chromium against a stand-in API, about 2 minutes (needs openssl, poppler-utils for the print tests)
+npm test               # 614 unit tests, about 7 seconds, no browser
+npm run test:e2e       # 105 tests in Chromium against a stand-in API, about 2 minutes (needs openssl, poppler-utils for the print tests)
 npm run test:deploy    # the nginx example of docs/WEB-DEPLOY.md on a real nginx in front of the stand-in API, under 15 seconds (needs nginx; without it the test says "skipped")
 npm run check          # is this folder ready to upload
 ```
@@ -147,11 +156,10 @@ index.html     the page: policy, #app, #print-root
 config.js      the only file an administrator edits
 _headers       response headers for hosts that read such a file (Netlify, Cloudflare Pages); the model for nginx / IIS
 favicon.svg
-css/app.css    all styling: the forest-green tokens at the top, the print rules at the end
+css/app.css    all styling: the tokens (forest green, Segoe UI, the type scale) at the top, the print rules at the end
 js/            the page's code: api.js (the only code that uses the network), auth.js, connectivity.js, search.js, issue.js, records.js,
                banners.js, slip.js, qr.js, format.js, errors.js, main.js; ui/ (the screens)
 vendor/        qrcode.js = qrcode-generator (MIT) with its licence - a .js file on purpose: stock web servers do not know .mjs as JavaScript
-fonts/         Atkinson Hyperlegible (SIL OFL) with its licence - made so that 0/O and 1/l/I stay apart, which matters for account codes
 tools/         set-api-url.mjs, check-bundle.mjs, check-site.mjs, lint.mjs, lib.mjs   (Node; for the administrator, not uploaded)
 tests/         unit/ (node:test), e2e/ (Playwright), deploy/ (the nginx example on a real nginx), mutation/ (breaking the page on purpose)
 docs/          WEB-DEPLOY.md, WEB-VERIFICATION.md, samples/ (nginx-evoting-registration.conf, web.config)

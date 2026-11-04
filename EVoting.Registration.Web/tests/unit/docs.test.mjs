@@ -64,9 +64,9 @@ test('nginx example: its headers are those of _headers, word for word (page and 
 test('nginx example: every header is set once, at server level, and no location sets one (nginx would drop all the others there)', () => {
   const text = read(NGINX);
   for (const location of nginxLocations(text)) assert.ok(!/add_header/.test(location.body), `${location.head} contains add_header`);
-  assert.ok(nginxLocations(text).length >= 3);
+  assert.ok(nginxLocations(text).length >= 2);
   assert.match(text, /^\s*expires -1;/m, 'no-cache for the page comes from "expires -1"');
-  assert.match(text, /location \/fonts\/ \{\s*expires 1y;/, 'fonts are kept for a year');
+  assert.ok(!/location \/fonts\//.test(text), 'the page has no fonts to keep: Segoe UI is the visitor\'s own');
 });
 
 test('nginx example: the proxy to the API keeps the path, names the API, and checks its certificate', () => {
@@ -103,7 +103,7 @@ test('IIS example: its headers are those of _headers, word for word', () => {
   assert.deepEqual(Object.keys(sample).sort(), [...SECURITY].sort());
   for (const name of SECURITY) assert.equal(sample[name], model[name], `${name} differs between the IIS example and _headers`);
   assert.match(text, /cacheControlMode="DisableCache"/, 'no-cache for the page');
-  assert.match(text, /fileExtension="\.woff2" mimeType="font\/woff2"/, 'older IIS has no type for .woff2');
+  assert.ok(!/woff2/.test(text), 'the page has no fonts; do not map one');
   assert.match(text, /<match url="\^api\/\(\.\*\)\$" \/>\s*<action type="Rewrite" url="https:\/\/[a-z0-9.-]+\/api\/\{R:1\}" \/>/, 'the proxy rule keeps /api/ in the path');
   assert.ok(!/fileExtension="\.mjs"/.test(text), 'the page has no .mjs files; do not map one');
 });
@@ -131,7 +131,7 @@ test('every file the documents point to exists; every npm script they name exist
   const inPackage = existsSync(path.join(packageRoot, 'docs')); // this folder is not always inside the whole package (a copy of it alone)
   const documents = ['README.md', ...readdirSync(path.join(ROOT, 'docs')).filter((f) => f.endsWith('.md')).map((f) => `docs/${f}`)];
   const scripts = JSON.parse(read('package.json')).scripts;
-  const folders = new Set(['css/', 'js/', 'vendor/', 'fonts/', 'tools/', 'tests/', 'docs/']);
+  const folders = new Set(['css/', 'js/', 'vendor/', 'tools/', 'tests/', 'docs/']);
   const problems = [];
   let checked = 0;
   for (const document of documents) {

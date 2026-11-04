@@ -221,7 +221,17 @@ test('issue: with auto-print off, the slip is shown and printed only when asked'
   await eventually(async () => (await prints(page)).length === 1, { message: 'one print' });
 }, { config: { autoPrint: false } });
 
+/** A day as the desk writes it ("04 Nov 2026"), in the time zone of the test browser (Asia/Manila, see harness.mjs). */
+function dayAsWritten(moment) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(moment).map((p) => [p.type, p.value]),
+  );
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${String(parts.day).padStart(2, '0')} ${months[Number(parts.month) - 1]} ${parts.year}`;
+}
+
 test('issue: the member list shows the new "Issued" time and the next search sees it', async ({ page }) => {
+  const startedAt = new Date(); // the stand-in server stamps the issue with the real clock: the test must not assume which day that is
   await signedIn(page);
   await find(page, 'A0001');
   await page.keyboard.press('Enter');
@@ -229,7 +239,8 @@ test('issue: the member list shows the new "Issued" time and the next search see
   await sleep(5200); // past the "same action" window
   await typeInSearch(page, 'A0001');
   const rows = await waitForResults(page, (r) => r.length === 1);
-  assert.match(await page.locator('#results .result-qr').textContent(), /^Issued 03 Nov 2026 \d\d:\d\d$/);
+  const days = [...new Set([dayAsWritten(startedAt), dayAsWritten(new Date())])]; // (two days only when the test runs across midnight)
+  assert.match(await page.locator('#results .result-qr').textContent(), new RegExp(`^Issued (${days.join('|')}) \\d\\d:\\d\\d$`));
   assert.equal(rows[0].selected, true);
   assert.match(await page.locator('#issue-button').textContent(), /Issue QR again/);
 });

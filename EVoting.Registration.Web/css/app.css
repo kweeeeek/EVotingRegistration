@@ -1,84 +1,83 @@
 /* E-Voting Registration desk.
  *
- * Built for people who do this for hours at a folding table: a quiet, flat workspace, large type, no decoration that is not
- * information. The one thing allowed to look special is the slip - it is drawn as the strip of thermal paper that comes out of the
- * printer (serrated edge, fed out once), and the same markup is what is printed.
+ * A light, quiet workspace for people who do this for hours at a table: white cards on a soft grey-green desk, small regular type,
+ * and one colour with a job. That colour is forest green - literally the CSS colour "forestgreen", #228B22 - and it marks what is
+ * the brand (the mark, the thin line across the top), what can be pressed (the main button) and what is chosen (the selected row).
+ * The one thing allowed to look special is the slip: it is drawn as the strip of thermal paper that comes out of the printer
+ * (serrated edge, fed out once), and the same markup is what is printed.
  *
- * Type: Atkinson Hyperlegible, made by the Braille Institute so that look-alike characters (0 O, 1 l I) stay different - which is
- * exactly the problem of account codes read across a desk. Fonts are served from this site (see fonts/LICENSE-OFL.txt).
+ * Type: Segoe UI, the face of Windows, as it is installed on every Windows PC (it cannot be bundled: it is not free to
+ * redistribute). Two weights only - regular (400) and semibold (600) - because Segoe UI has no weight in between and nothing
+ * above 600 is wanted. Everywhere else the system's own UI font takes over. Account codes are the one exception: they are set in
+ * Consolas (a fixed-width face with a slashed zero) so 0/O and 1/l/I cannot be mistaken when a code is read out across a desk;
+ * --font-code is the single place to change that.
+ *
+ * Contrast: white on #228B22 is 4.39:1. That is fine for shapes (WCAG asks 3:1) but just under the 4.5:1 that small type needs,
+ * so forest green is a background for exactly one kind of text - the label of the main button - and for nothing else. All other
+ * type sits on white or on a pale tint, in near-black or deep green (tests/unit/theme.test.mjs and tests/e2e/scenarios/90-theme.mjs
+ * keep it that way). If a stricter reading is wanted, --forest-button is the one token to darken.
+ *
  * No inline styles anywhere: the Content-Security-Policy forbids them. */
-
-/* ── fonts ──────────────────────────────────────────────────────────────────────────────────────────── */
-@font-face {
-  font-family: 'Atkinson Hyperlegible Next Variable';
-  font-style: normal;
-  font-display: swap;
-  font-weight: 200 800;
-  src: url('../fonts/atkinson-hyperlegible-next-latin-ext-wght-normal.woff2') format('woff2-variations'), url('../fonts/atkinson-hyperlegible-next-latin-ext-wght-normal.woff2') format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Atkinson Hyperlegible Next Variable';
-  font-style: normal;
-  font-display: swap;
-  font-weight: 200 800;
-  src: url('../fonts/atkinson-hyperlegible-next-latin-wght-normal.woff2') format('woff2-variations'), url('../fonts/atkinson-hyperlegible-next-latin-wght-normal.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Atkinson Hyperlegible Mono Variable';
-  font-style: normal;
-  font-display: swap;
-  font-weight: 200 800;
-  src: url('../fonts/atkinson-hyperlegible-mono-latin-wght-normal.woff2') format('woff2-variations'), url('../fonts/atkinson-hyperlegible-mono-latin-wght-normal.woff2') format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
 
 /* ── tokens ─────────────────────────────────────────────────────────────────────────────────────────── */
 :root {
   color-scheme: light;
 
-  /* Forest green is the colour of this desk. --forest is the literal CSS colour "forestgreen" (#228B22): the top bar, the main
-   * buttons, and every marker of "this one is chosen". White on it is 4.39:1 - enough for large bold type and for shapes
-   * (WCAG asks 3:1 for those) but not for small type. So large bold type sits straight on it, and small type sits on a darker
-   * green inset (--forest-inset, white on it is 7.7:1) or on white. */
+  /* the colour of the desk */
   --forest: #228b22;
-  --forest-dark: #1a6e1b;
-  --forest-inset: #166016;
-  --forest-inset-hover: #0f4a12;
-  --forest-tint: #e3f1e3;
+  --forest-button: var(--forest);
+  --forest-hover: #1c7a1c;
+  --forest-press: #166516;
+  --forest-ink: #14531a;
+  --forest-tint: #e8f4e8;
+  --forest-wash: #d4ebd4;
 
-  --ink: #14211a;
-  --ink-soft: #41524a;
-  --ink-faint: #51625a;
-  --desk: #e1eae1;
-  --panel: #ffffff;
-  --rule: #c2cfc3;
-  --rule-strong: #7a8f7e;
+  --ink: #1b2a21;
+  --ink-soft: #46554c;
+  --ink-faint: #5a695f;
+  --canvas: #f2f5f2;
+  --surface: #ffffff;
+  --hover: #eef3ee;
+  --line: #dde4de;
+  --line-strong: #7d8d83;
 
-  --brand: var(--forest);
-  --brand-dark: var(--forest-dark);
-  --brand-tint: var(--forest-tint);
-  --focus: #f5b700;
+  --focus: var(--forest);
 
-  /* "for your information" is neutral on purpose: in a green desk, green must keep meaning "chosen" or "done". */
-  --info-bar: #4b5e53;
-  --info-tint: #e9efea;
+  /* "for your information" is blue-grey on purpose: in a green desk, green must keep meaning "chosen" or "done" */
+  --info: #35566f;
+  --info-tint: #eaf1f7;
+  --info-line: #c3d5e4;
 
-  --ok: #17601b;
-  --ok-tint: #dcefdc;
-  --bad: #9b1c1c;
-  --bad-tint: #fde3e3;
-  --warn: #6f4300;
-  --warn-tint: #fff0c7;
+  --ok: #176b1d;
+  --ok-tint: #e4f3e4;
+  --ok-line: #b7dcb9;
+  --bad: #a3222a;
+  --bad-tint: #fdeeee;
+  --bad-line: #f1c0c3;
+  --warn: #7a4a00;
+  --warn-tint: #fff3cd;
+  --warn-line: #ecd48a;
   --mark: #ffe58f;
 
-  --font: 'Atkinson Hyperlegible Next Variable', 'Atkinson Hyperlegible Next', 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'Atkinson Hyperlegible Mono Variable', 'Atkinson Hyperlegible Mono', 'Cascadia Mono', Consolas, 'Courier New', monospace;
+  --font: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+  --font-code: Consolas, 'Cascadia Mono', 'SFMono-Regular', Menlo, 'DejaVu Sans Mono', monospace;
 
-  --r-control: 6px;
-  --r-panel: 8px;
-  --r-dialog: 12px;
+  /* the type scale: 12 / 13 / 14 / 16 / 20 / 24 px at the browser's default size */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+
+  --shadow-1: 0 1px 2px rgb(18 40 24 / 0.06), 0 1px 1px rgb(18 40 24 / 0.04);
+  --shadow-2: 0 8px 24px rgb(18 40 24 / 0.1), 0 2px 6px rgb(18 40 24 / 0.06);
+  --shadow-3: 0 24px 56px rgb(10 30 16 / 0.28), 0 4px 12px rgb(10 30 16 / 0.12);
 }
 
 /* ── base ───────────────────────────────────────────────────────────────────────────────────────────── */
@@ -91,22 +90,27 @@
   display: none !important;
 }
 html {
-  font-size: 106.25%; /* 17 px: the desk is read at arm's length */
+  font-size: 100%;
   -webkit-text-size-adjust: 100%;
 }
 body {
   margin: 0;
-  background: var(--desk);
+  background: var(--canvas);
   color: var(--ink);
   font-family: var(--font);
-  line-height: 1.4;
+  font-size: var(--text-md);
+  font-weight: 400;
+  line-height: 1.5;
   font-variant-numeric: lining-nums;
+  -webkit-font-smoothing: antialiased;
 }
+/* The thin green line across the top of every screen. */
 #app {
   display: flex;
   flex-direction: column;
   height: 100vh;
   height: 100dvh;
+  border-top: 3px solid var(--forest);
 }
 h1,
 h2,
@@ -116,6 +120,20 @@ dl,
 dd,
 ul {
   margin: 0;
+}
+h1,
+h2,
+h3,
+strong,
+b,
+th,
+summary {
+  font-weight: 600;
+}
+h1,
+h2,
+h3 {
+  font-size: inherit;
 }
 ul {
   padding: 0;
@@ -131,7 +149,7 @@ mark {
 .detail-code,
 .result-code,
 .recent-code {
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
 }
 .visually-hidden {
   position: absolute;
@@ -154,124 +172,158 @@ mark {
   display: none;
 }
 
-/* The ring is two-tone (dark outside, amber inside) so it is visible on white, on tinted rows and on the green bar alike. */
+/* One ring for everything that can be reached with the keyboard: forest green is 4.4:1 against white and 3.7:1 or more against the
+ * pale tints, which is what WCAG asks of the edge of a focus indicator. */
 :focus-visible {
-  outline: 3px solid var(--ink);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
-  box-shadow: 0 0 0 2px var(--focus);
 }
-.topbar :focus-visible {
-  outline-color: #ffffff;
+@media (prefers-reduced-motion: no-preference) {
+  .btn,
+  input[type='text'],
+  input[type='password'],
+  .result {
+    transition: background-color 0.12s ease, border-color 0.12s ease;
+  }
 }
 
 /* ── buttons and fields ─────────────────────────────────────────────────────────────────────────────── */
 .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-height: 2.25rem;
+  padding: 0.375rem 1rem;
   font: inherit;
-  font-weight: 650;
-  min-height: 2.75rem;
-  padding: 0.45rem 1.1rem;
-  border: 2px solid var(--ink);
-  border-radius: var(--r-control);
-  background: var(--panel);
+  font-weight: 400;
+  line-height: 1.25;
+  text-align: center;
   color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
   cursor: pointer;
-  line-height: 1.2;
 }
 .btn:hover:not(:disabled) {
-  background: var(--brand-tint);
+  background: var(--hover);
+  border-color: var(--ink-faint);
 }
 .btn:active:not(:disabled) {
-  transform: translateY(1px);
+  background: var(--forest-wash);
 }
 .btn:disabled {
   cursor: not-allowed;
-  color: var(--ink-faint);
-  border-color: var(--rule-strong);
-  border-style: dashed;
-  background: transparent;
+  color: #7a877f;
+  background: #f4f6f4;
+  border-color: var(--line);
 }
-/* The main buttons are the literal forest green. White on it is 4.39:1, so the label is large and bold (14 pt bold = 18.67 px,
- * which WCAG measures against 3:1). A small primary button (in a table) is the darker green instead. */
+/* The main button is the literal forest green. See the note at the top about the 4.39:1 of white on it. */
 .btn-primary {
-  background: var(--brand);
-  border-color: var(--brand);
+  background: var(--forest-button);
+  border-color: var(--forest-button);
   color: #ffffff;
-  font-weight: 700;
-  font-size: max(1.1rem, 18.67px);
+  font-weight: 600;
 }
 .btn-primary:hover:not(:disabled) {
-  background: var(--brand-dark);
-  border-color: var(--brand-dark);
+  background: var(--forest-hover);
+  border-color: var(--forest-hover);
+}
+.btn-primary:active:not(:disabled) {
+  background: var(--forest-press);
+  border-color: var(--forest-press);
+}
+.btn-primary:disabled {
+  background: #c9dfc9;
+  border-color: #c9dfc9;
+  color: #3f5f43;
 }
 .btn-danger {
   background: var(--bad);
   border-color: var(--bad);
   color: #ffffff;
+  font-weight: 600;
 }
 .btn-danger:hover:not(:disabled) {
-  background: #7a1414;
-  border-color: #7a1414;
+  background: #8c1c23;
+  border-color: #8c1c23;
+}
+.btn-danger:active:not(:disabled) {
+  background: #741820;
+  border-color: #741820;
 }
 .btn-quiet {
-  border-color: var(--rule-strong);
+  border-color: var(--line);
   background: transparent;
 }
 .btn-small {
-  min-height: 2.25rem;
-  padding: 0.2rem 0.8rem;
-  font-size: 0.95rem;
-}
-.btn-small.btn-primary {
-  background: var(--brand-dark);
-  border-color: var(--brand-dark);
-}
-.btn-small.btn-primary:hover:not(:disabled) {
-  background: var(--forest-inset);
-  border-color: var(--forest-inset);
+  min-height: 2rem;
+  padding: 0.25rem 0.75rem;
+  font-size: var(--text-sm);
 }
 .btn-large {
-  min-height: 4rem;
-  padding: 0.7rem 1.6rem;
-  font-size: 1.3rem;
+  min-height: 2.75rem;
+  padding: 0.5rem 1.5rem;
+  font-size: var(--text-lg);
 }
 .btn-wide {
   width: 100%;
 }
 .count {
-  display: inline-block;
-  min-width: 1.5rem;
-  margin-left: 0.2rem;
-  padding: 0 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  margin-left: 0.125rem;
+  padding: 0 0.375rem;
   border-radius: 999px;
   background: var(--bad);
   color: #ffffff;
-  font-size: 0.85rem;
-  line-height: 1.5rem;
-  text-align: center;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1;
 }
 
+/* Text boxes are slim: 32 px high, 13 px type. (The search box, the one people type in all day, is a little taller, below.) */
 input[type='text'],
 input[type='password'] {
-  font: inherit;
-  min-height: 2.9rem;
   width: 100%;
-  padding: 0.35rem 0.7rem;
-  border: 2px solid var(--ink-soft);
-  border-radius: var(--r-control);
-  background: #ffffff;
+  min-height: 2rem;
+  padding: 0.25rem 0.625rem;
+  font: inherit;
+  font-size: var(--text-sm);
   color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
 }
-/* the focus ring (dark + amber) already says "you are here"; a green border inside it only muddies the amber */
-input:focus-visible {
-  border-color: var(--ink);
+input::placeholder {
+  color: var(--ink-faint);
+  opacity: 1;
+}
+input[type='text']:hover,
+input[type='password']:hover {
+  border-color: var(--ink-faint);
+}
+/* A text box in focus: its thin edge turns forest green - nothing else. No second ring, no glow around it. The outline is transparent
+ * on purpose: a forced-colours (high-contrast) display draws it in its own colour, so the box can still be seen to be in focus there.
+ * (The selectors are as specific as the hover rule above and come after it: a box that has the focus stays green while the pointer is
+ * over it.) */
+input[type='text']:focus-visible,
+input[type='password']:focus-visible {
+  border-color: var(--forest);
+  outline: 2px solid transparent;
+  outline-offset: 1px;
 }
 .field {
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 0.375rem;
 }
 .field label {
-  font-weight: 650;
+  font-size: var(--text-sm);
+  font-weight: 600;
 }
 .password-row {
   display: flex;
@@ -279,12 +331,13 @@ input:focus-visible {
 }
 .password-row .btn {
   flex: none;
-  min-width: 4.5rem;
+  min-width: 4.25rem;
+  min-height: 2rem;
 }
 .form-error {
-  min-height: 1.4em;
+  min-height: 1.25rem;
   color: var(--bad);
-  font-weight: 650;
+  font-size: var(--text-sm);
 }
 
 /* ── sign-in ────────────────────────────────────────────────────────────────────────────────────────── */
@@ -296,103 +349,148 @@ input:focus-visible {
   overflow: auto;
 }
 .login-panel {
-  width: min(26rem, 100%);
-  padding: 1.75rem 1.75rem 1.25rem;
-  background: var(--panel);
-  border: 1px solid var(--rule);
-  border-top: 8px solid var(--forest);
-  border-radius: var(--r-panel);
+  width: min(24rem, 100%);
+  padding: 2rem 2rem 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-2);
 }
 .login-title {
-  margin-bottom: 0.4rem;
-  font-size: 2rem;
-  font-weight: 750;
-  line-height: 1.15;
+  margin-bottom: 0.375rem;
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: 1.2;
 }
 .login-lead {
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
   color: var(--ink-soft);
 }
 .login-form {
   display: grid;
-  gap: 0.9rem;
+  gap: 1rem;
 }
-/* the tear-off stub of a ticket: what the page knows about the server sits below the perforation */
 .login-server {
-  margin: 1.4rem -1.75rem 0;
-  padding: 0.9rem 1.75rem 0;
-  border-top: 2px dashed var(--rule-strong);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 0.375rem;
+  margin: 1.5rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
 }
-.login-server-host {
-  font-family: var(--font-mono);
-  font-weight: 600;
-}
-.login-server-state {
-  font-weight: 650;
+.login-server-state::before {
+  content: '';
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.375rem;
+  border-radius: 50%;
+  background: #8a978f;
+  vertical-align: 0.0625rem;
 }
 .login-server-state[data-state='online'] {
   color: var(--ok);
 }
+.login-server-state[data-state='online']::before {
+  background: var(--forest);
+}
 .login-server-state[data-state='offline'] {
   color: var(--bad);
 }
+.login-server-state[data-state='offline']::before {
+  background: var(--bad);
+}
 .login-note {
-  margin-top: 0.6rem;
+  margin-top: 0.75rem;
   color: var(--ink-soft);
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
 }
 
 /* ── top bar ────────────────────────────────────────────────────────────────────────────────────────── */
-/* The bar is the literal forest green. The election title is large bold type and sits straight on it; every smaller piece of
- * type (brand tag, venue and dates, who is signed in, connection, buttons) sits on a darker inset so it stays readable. */
 .topbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem 2rem;
-  padding: 0.6rem 1rem;
-  background: var(--forest);
-  color: #ffffff;
+  gap: 0.5rem 1.5rem;
+  padding: 0.625rem 1.25rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+/* two lines: the product and the election on the first, venue / dates / branches below (a grid, so that the block is only as wide as its
+ * widest line and the tools can stay beside it) */
+.topbar-election {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.125rem 1rem;
+  min-width: 0;
 }
 .topbar-brand {
-  display: inline-block;
-  padding: 0 0.55rem;
-  border-radius: 4px;
-  background: var(--forest-inset);
-  font-size: 0.9rem;
+  position: relative;
+  padding-left: 1.875rem;
+  color: var(--forest-ink);
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: #ffffff;
+}
+.topbar-brand::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: -0.6875rem;
+  border-radius: 0.375rem;
+  background: var(--forest);
+}
+.topbar-brand::after {
+  content: '';
+  position: absolute;
+  left: 0.5rem;
+  top: 50%;
+  width: 0.3125rem;
+  height: 0.625rem;
+  margin-top: -0.5rem;
+  border: solid #ffffff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 .election-title {
-  margin-top: 0.15rem;
-  font-size: 1.4rem;
-  font-weight: 750;
-  line-height: 1.2;
+  font-size: var(--text-lg);
+  font-weight: 600;
+  line-height: 1.3;
 }
 .election-detail {
-  display: inline-flex;
+  grid-column: 1 / -1;
+  display: flex;
   flex-wrap: wrap;
-  max-width: 100%;
-  margin-top: 0.2rem;
-  padding: 0.05rem 0.75rem;
-  border-radius: 6px;
-  background: var(--forest-inset);
-  color: #ffffff;
-  font-size: 0.95rem;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
 }
 .election-detail:empty {
   display: none;
 }
-.election-detail span + span::before {
-  content: '';
-  display: inline-block;
-  width: 1px;
-  height: 0.9em;
-  margin: 0 0.7rem;
-  background: currentColor;
-  opacity: 0.55;
-  vertical-align: -0.1em;
+.election-detail {
+  column-gap: 1.25rem;
+}
+/* thin dividers between venue, dates and branches - only where the line is long enough not to wrap in the middle of them */
+@media (min-width: 48rem) {
+  .election-detail {
+    column-gap: 0;
+  }
+  .election-detail span + span::before {
+    content: '';
+    display: inline-block;
+    width: 1px;
+    height: 0.875em;
+    margin: 0 0.75rem;
+    background: var(--line-strong);
+    vertical-align: -0.1em;
+  }
 }
 .topbar-tools {
   display: flex;
@@ -401,54 +499,69 @@ input:focus-visible {
   gap: 0.5rem 1rem;
 }
 .topbar-user {
-  padding: 0.15rem 0.8rem;
-  border-radius: 999px;
-  background: var(--forest-inset);
-  color: #ffffff;
+  color: var(--ink-soft);
+  font-size: var(--text-sm);
 }
 .topbar-user strong {
-  color: #ffffff;
+  color: var(--ink);
 }
 .topbar-buttons {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.25rem;
 }
 .topbar .btn-quiet {
-  background: var(--forest-inset);
-  color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.6);
+  border-color: transparent;
 }
 .topbar .btn-quiet:hover:not(:disabled) {
-  background: var(--forest-inset-hover);
+  border-color: var(--line);
 }
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.2rem 0.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  gap: 0.4375rem;
+  padding: 0.125rem 0.75rem;
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: var(--forest-inset);
-  font-size: 0.95rem;
-  font-weight: 650;
+  background: var(--canvas);
+  font-size: var(--text-sm);
 }
 .pill-dot {
-  width: 0.7rem;
-  height: 0.7rem;
+  width: 0.5rem;
+  height: 0.5rem;
   border-radius: 50%;
-  background: #b8c9b8;
+  background: #8a978f;
+}
+.pill[data-kind='online'] {
+  background: var(--ok-tint);
+  border-color: var(--ok-line);
+  color: var(--ok);
 }
 .pill[data-kind='online'] .pill-dot {
-  background: #6ee7a0;
+  background: var(--forest);
+}
+.pill[data-kind='offline'] {
+  background: var(--bad-tint);
+  border-color: var(--bad-line);
+  color: var(--bad);
 }
 .pill[data-kind='offline'] .pill-dot {
-  background: #ff9a9a;
+  background: var(--bad);
+}
+.pill[data-kind='problem'] {
+  background: var(--warn-tint);
+  border-color: var(--warn-line);
+  color: var(--warn);
 }
 .pill[data-kind='problem'] .pill-dot {
-  background: #fbbf24;
+  background: #c58a00;
 }
 
 /* ── notices across the top ─────────────────────────────────────────────────────────────────────────── */
+.banners {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem 0;
+}
 .banners:empty {
   display: none;
 }
@@ -458,15 +571,17 @@ input:focus-visible {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem 1rem;
-  padding: 0.6rem 1rem;
-  border-left: 8px solid;
-  border-bottom: 1px solid var(--rule);
+  padding: 0.5rem 0.875rem;
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: var(--r-md);
 }
 .banner-title {
-  font-weight: 750;
+  font-weight: 600;
 }
 .banner-detail {
   max-width: 75ch;
+  font-size: var(--text-sm);
 }
 .banner-actions {
   display: flex;
@@ -474,15 +589,18 @@ input:focus-visible {
 }
 .banner-critical {
   background: var(--bad-tint);
+  border-color: var(--bad-line);
   border-left-color: var(--bad);
 }
 .banner-warning {
   background: var(--warn-tint);
-  border-left-color: #b7791f;
+  border-color: var(--warn-line);
+  border-left-color: #c58a00;
 }
 .banner-info {
   background: var(--info-tint);
-  border-left-color: var(--info-bar);
+  border-color: var(--info-line);
+  border-left-color: var(--info);
 }
 
 /* ── the desk ───────────────────────────────────────────────────────────────────────────────────────── */
@@ -492,14 +610,22 @@ input:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding: 1rem;
+  padding: 1rem 1.25rem 1.25rem;
 }
 .desk-grid {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(19rem, 30rem) minmax(0, 1fr);
+  grid-template-columns: minmax(19rem, 26rem) minmax(0, 1fr);
   gap: 1rem;
+}
+.search,
+.detail,
+.recent {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-1);
 }
 
 /* search */
@@ -509,121 +635,156 @@ input:focus-visible {
   flex-direction: column;
   gap: 0.5rem;
   padding-top: 1rem;
-  background: var(--panel);
-  border: 1px solid var(--rule);
-  border-radius: var(--r-panel);
   overflow: hidden;
 }
 .search > :not(.results) {
   margin-inline: 1rem;
 }
 .search-label {
-  font-size: 1.15rem;
-  font-weight: 750;
+  font-size: var(--text-md);
+  font-weight: 600;
 }
 .search-row {
+  position: relative;
   display: flex;
   gap: 0.5rem;
 }
-.search-input {
+/* the magnifying glass inside the box, drawn with borders */
+.search-row::before {
+  content: '';
+  position: absolute;
+  left: 0.9375rem;
+  top: 50%;
+  width: 0.8125rem;
+  height: 0.8125rem;
+  margin-top: -0.5rem;
+  border: 2px solid var(--ink-faint);
+  border-radius: 50%;
+  pointer-events: none;
+}
+.search-row::after {
+  content: '';
+  position: absolute;
+  left: 1.6875rem;
+  top: 50%;
+  width: 0.4375rem;
+  height: 2px;
+  margin-top: 0.3125rem;
+  background: var(--ink-faint);
+  transform: rotate(45deg);
+  transform-origin: left center;
+  pointer-events: none;
+}
+.search-row .search-input {
   flex: 1;
   min-width: 0;
-  min-height: 3.4rem;
-  font-size: 1.4rem;
+  min-height: 2.25rem;
+  padding-left: 2.375rem;
+  font-size: var(--text-md);
 }
 .search-hint {
   color: var(--ink-soft);
-  font-size: 0.95rem;
+  font-size: var(--text-sm);
 }
 .search-status-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  min-height: 1.6rem;
+  min-height: 1.5rem;
 }
 .search-status {
   color: var(--ink-soft);
+  font-size: var(--text-sm);
 }
 .search-status.is-error {
   color: var(--bad);
-  font-weight: 650;
 }
 .results {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  border-top: 1px solid var(--rule);
+  border-top: 1px solid var(--line);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 .results.is-pending {
   opacity: 0.8;
 }
+/* Rows are kept slim: a lot of names fit on the screen at once, which is what a busy desk wants. */
 .result {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.65rem 1rem 0.65rem 0.75rem;
-  border-bottom: 1px solid var(--rule);
-  border-left: 5px solid transparent;
+  gap: 0.75rem;
+  padding: 0.3125rem 0.875rem 0.3125rem 0.6875rem;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid transparent;
   cursor: pointer;
 }
 .result:hover {
-  background: #f0f5f0;
+  background: var(--hover);
 }
 .result.is-selected {
-  background: var(--brand-tint);
-  border-left-color: var(--brand);
+  background: var(--forest-tint);
+  border-left-color: var(--forest);
 }
 .result-main {
   min-width: 0;
 }
 .result-name {
   display: block;
-  font-size: 1.15rem;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  line-height: 1.35;
   overflow-wrap: anywhere;
 }
 .result-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.1rem 0.9rem;
+  gap: 0 0.625rem;
   color: var(--ink-soft);
-  font-size: 0.95rem;
+  font-size: var(--text-xs);
+  line-height: 1.35;
 }
 .result-side {
   flex: none;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.2rem;
   text-align: right;
 }
 .result-qr {
   color: var(--ink-soft);
-  font-size: 0.85rem;
+  font-size: var(--text-xs);
+  line-height: 1.35;
 }
 .badge {
   display: inline-flex;
-  gap: 0.3rem;
-  padding: 0 0.5rem;
-  border: 1px solid currentColor;
-  border-radius: 4px;
-  font-size: 0.9rem;
-  font-weight: 700;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0 0.4375rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.35;
   white-space: nowrap;
 }
 .badge[data-kind='eligible'] {
   background: var(--ok-tint);
+  border-color: var(--ok-line);
   color: var(--ok);
 }
 .badge[data-kind='notEligible'] {
   background: var(--bad-tint);
+  border-color: var(--bad-line);
   color: var(--bad);
 }
 .badge[data-kind='inactive'],
 .badge[data-kind='branchNotInElection'] {
   background: var(--warn-tint);
+  border-color: var(--warn-line);
   color: var(--warn);
 }
 
@@ -635,13 +796,13 @@ input:focus-visible {
   grid-template-columns: minmax(0, 1fr);
   align-content: start;
   gap: 1rem;
-  padding: 1.25rem 1.5rem;
-  background: var(--panel);
-  border: 1px solid var(--rule);
-  border-radius: var(--r-panel);
+  padding: 1.5rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 .detail.has-slip {
   grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 1.5rem;
 }
 .detail > * {
   grid-column: 1;
@@ -651,99 +812,120 @@ input:focus-visible {
   grid-row: 1 / span 4;
 }
 .detail-empty {
+  display: grid;
+  place-items: center;
+  min-height: 11rem;
   padding: 2rem 1rem;
-  border: 2px dashed var(--rule);
-  border-radius: var(--r-control);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-md);
   color: var(--ink-soft);
-  font-size: 1.1rem;
+  text-align: center;
 }
 .detail-member {
   display: grid;
-  gap: 0.85rem;
+  gap: 1rem;
   justify-items: start;
 }
 .detail-name {
-  font-size: 2rem;
-  font-weight: 750;
-  line-height: 1.15;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.25;
   overflow-wrap: anywhere;
 }
 .detail-ids {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.25rem 0;
-  font-size: 1.2rem;
+  gap: 0.375rem 0.75rem;
 }
 .detail-code {
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  padding: 0 0.5rem;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  letter-spacing: 0.02em;
 }
 .detail-branch {
   color: var(--ink-soft);
 }
-.detail-branch::before {
-  content: '';
-  display: inline-block;
-  width: 1px;
-  height: 1em;
-  margin: 0 0.8rem;
-  background: var(--rule-strong);
-  vertical-align: -0.12em;
-}
 .eligibility {
   display: flex;
   align-items: center;
-  gap: 0.7rem;
-  padding: 0.55rem 1rem;
-  border-left: 6px solid;
-  border-radius: var(--r-control);
-  font-size: 1.25rem;
+  gap: 0.625rem;
+  padding: 0.5rem 0.875rem 0.5rem 0.625rem;
+  border: 1px solid;
+  border-radius: var(--r-md);
+  font-size: var(--text-lg);
 }
 .eligibility-icon {
-  font-size: 1.5rem;
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: var(--text-sm);
   line-height: 1;
 }
 .eligibility[data-kind='eligible'] {
   background: var(--ok-tint);
+  border-color: var(--ok-line);
   color: var(--ok);
+}
+.eligibility[data-kind='eligible'] .eligibility-icon {
+  background: var(--ok);
 }
 .eligibility[data-kind='notEligible'] {
   background: var(--bad-tint);
+  border-color: var(--bad-line);
   color: var(--bad);
+}
+.eligibility[data-kind='notEligible'] .eligibility-icon {
+  background: var(--bad);
 }
 .eligibility[data-kind='inactive'],
 .eligibility[data-kind='branchNotInElection'] {
   background: var(--warn-tint);
+  border-color: var(--warn-line);
   color: var(--warn);
+}
+.eligibility[data-kind='inactive'] .eligibility-icon,
+.eligibility[data-kind='branchNotInElection'] .eligibility-icon {
+  background: var(--warn);
 }
 .eligibility-reason {
   max-width: 60ch;
+  color: var(--ink-soft);
 }
 .detail-qr {
   color: var(--ink-soft);
+  font-size: var(--text-sm);
 }
 .issue {
   display: grid;
   justify-items: start;
-  gap: 0.6rem;
+  gap: 0.5rem;
 }
 .issue .btn-large {
-  min-width: min(100%, 22rem);
+  min-width: min(100%, 18rem);
 }
 .issue-hint {
   max-width: 52ch;
   color: var(--ink-soft);
+  font-size: var(--text-sm);
 }
 .more summary {
   cursor: pointer;
-  font-weight: 650;
+  color: var(--forest-ink);
+  font-size: var(--text-sm);
 }
 .more-list {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   gap: 0.25rem 1.25rem;
-  margin-top: 0.6rem;
+  margin-top: 0.75rem;
+  font-size: var(--text-sm);
 }
 .more-list dt {
   color: var(--ink-soft);
@@ -753,23 +935,26 @@ input:focus-visible {
 }
 .notice {
   display: grid;
-  gap: 0.6rem;
+  gap: 0.625rem;
   padding: 0.75rem 1rem;
-  border-left: 6px solid;
-  border-radius: var(--r-control);
-  font-size: 1.05rem;
+  border: 1px solid;
+  border-left-width: 4px;
+  border-radius: var(--r-md);
 }
 .notice[data-kind='success'] {
   background: var(--ok-tint);
+  border-color: var(--ok-line);
   border-left-color: var(--ok);
 }
 .notice[data-kind='error'] {
   background: var(--bad-tint);
+  border-color: var(--bad-line);
   border-left-color: var(--bad);
 }
 .notice[data-kind='info'] {
   background: var(--info-tint);
-  border-left-color: var(--info-bar);
+  border-color: var(--info-line);
+  border-left-color: var(--info);
 }
 .notice-actions {
   display: flex;
@@ -782,22 +967,19 @@ input:focus-visible {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 0.4rem 1.25rem;
-  padding: 0.6rem 1rem;
-  background: var(--panel);
-  border: 1px solid var(--rule);
-  border-radius: var(--r-panel);
+  gap: 0.5rem 1.25rem;
+  padding: 0.625rem 1rem;
 }
 .recent-head {
   grid-column: 1;
   grid-row: 1;
   display: flex;
   align-items: center;
-  gap: 0.9rem;
+  gap: 0.875rem;
 }
 .recent-title {
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: var(--text-sm);
+  font-weight: 600;
 }
 .recent-empty,
 .recent-list {
@@ -806,64 +988,72 @@ input:focus-visible {
 }
 .recent-empty {
   color: var(--ink-soft);
+  font-size: var(--text-sm);
 }
 .recent-list {
   display: flex;
   gap: 0.5rem;
-  padding: 0.2rem;
+  padding: 0.125rem;
   overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 .recent-item {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.2rem 0.7rem;
-  border: 1px solid var(--rule);
-  border-left: 5px solid var(--ok);
-  border-radius: var(--r-control);
-  font-size: 0.95rem;
+  gap: 0.625rem;
+  padding: 0.1875rem 0.75rem 0.1875rem 0.625rem;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--forest);
+  border-radius: var(--r-sm);
+  font-size: var(--text-sm);
   white-space: nowrap;
 }
 .recent-item[data-state='failed'],
 .recent-item[data-state='unknown'],
 .recent-item[data-state='rejected'] {
-  border-left-color: var(--bad);
   background: var(--bad-tint);
+  border-color: var(--bad-line);
+  border-left-color: var(--bad);
 }
 .recent-item[data-state='sending'] {
-  border-left-color: var(--info-bar);
+  border-left-color: var(--info);
 }
 .recent-name {
-  font-weight: 700;
+  font-weight: 600;
 }
 .recent-time,
 .recent-state {
   color: var(--ink-soft);
 }
+.recent-time {
+  font-variant-numeric: tabular-nums;
+}
 
 /* ── dialogs ────────────────────────────────────────────────────────────────────────────────────────── */
 .dialog {
-  max-width: min(34rem, calc(100vw - 2rem));
+  max-width: min(32rem, calc(100vw - 2rem));
   padding: 0;
   border: 0;
-  border-radius: var(--r-dialog);
-  background: var(--panel);
+  border-radius: var(--r-xl);
+  background: var(--surface);
   color: var(--ink);
-  box-shadow: 0 24px 64px rgba(10, 36, 16, 0.45);
+  box-shadow: var(--shadow-3);
 }
 .dialog::backdrop {
-  background: rgba(12, 30, 16, 0.62);
+  background: rgb(14 30 20 / 0.5);
 }
 .dialog-records {
-  width: min(66rem, calc(100vw - 2rem));
+  width: min(64rem, calc(100vw - 2rem));
   max-width: none;
   max-height: calc(100vh - 2rem);
 }
 .dialog-form {
   display: grid;
-  gap: 0.9rem;
-  padding: 1.25rem 1.5rem;
+  gap: 1rem;
+  padding: 1.5rem;
 }
 .dialog-head {
   display: flex;
@@ -872,8 +1062,9 @@ input:focus-visible {
   gap: 1rem;
 }
 .dialog-title {
-  font-size: 1.5rem;
-  font-weight: 750;
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: 1.3;
 }
 .dialog-lead {
   color: var(--ink-soft);
@@ -881,14 +1072,15 @@ input:focus-visible {
 }
 .dialog-body {
   display: grid;
-  gap: 0.7rem;
+  gap: 0.75rem;
   white-space: pre-line;
 }
 .dialog-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 0.6rem;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
 }
 .lock-user {
   color: var(--ink-soft);
@@ -896,7 +1088,7 @@ input:focus-visible {
 .review-modes {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem 1.5rem;
+  gap: 0.375rem 1.5rem;
   margin: 0;
   padding: 0;
   border: 0;
@@ -908,52 +1100,65 @@ input:focus-visible {
   cursor: pointer;
 }
 .choice input {
-  width: 1.2rem;
-  height: 1.2rem;
-  accent-color: var(--brand);
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  accent-color: var(--forest);
 }
 .review-summary {
-  font-weight: 650;
+  font-weight: 600;
 }
 .review-notice {
-  min-height: 1.4em;
-  color: var(--brand-dark);
-  font-weight: 650;
+  min-height: 1.5em;
+  color: var(--forest-ink);
+}
+.review-notice:empty {
+  min-height: 0;
+  margin-top: -1rem; /* an empty line must not leave a gap in the dialog */
 }
 .table-wrap {
   max-height: 55vh;
   overflow: auto;
-  border: 1px solid var(--rule);
-  border-radius: var(--r-control);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 .records-table {
   width: 100%;
   border-collapse: collapse;
+  font-size: var(--text-sm);
 }
 .records-table th {
   position: sticky;
   top: 0;
   padding: 0.5rem 0.75rem;
-  background: #e9f0e9;
-  border-bottom: 2px solid var(--rule-strong);
+  background: var(--canvas);
+  border-bottom: 1px solid var(--line-strong);
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  font-weight: 600;
   text-align: left;
 }
 .records-table td {
-  padding: 0.55rem 0.75rem;
-  border-bottom: 1px solid var(--rule);
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--line);
   vertical-align: top;
 }
+.records-table tbody tr:last-child td {
+  border-bottom: 0;
+}
 .records-table tr.is-problem td:first-child {
-  border-left: 5px solid var(--bad);
+  border-left: 3px solid var(--bad);
 }
 /* a table cell must stay a table cell (a flex <td> stops stretching to the row and breaks the row's lines): the buttons wrap like words */
 .cell-actions .btn {
-  margin: 0 0.4rem 0.4rem 0;
+  margin: 0 0.375rem 0.375rem 0;
   vertical-align: top;
 }
 .state-title {
   display: block;
-  font-weight: 700;
+  font-weight: 600;
 }
 .state-title[data-state='confirmed'] {
   color: var(--ok);
@@ -967,7 +1172,6 @@ input:focus-visible {
 .state-seen {
   display: block;
   color: var(--ink-soft);
-  font-size: 0.95rem;
 }
 
 /* ── the slip: what is shown on screen and what is printed ──────────────────────────────────────────── */
@@ -975,19 +1179,20 @@ input:focus-visible {
 .slip-area {
   display: grid;
   align-content: start;
-  gap: 0.6rem;
+  gap: 0.5rem;
   width: calc(80mm + 2rem);
   padding: 0.75rem 1rem 1rem;
-  background: #e4ece4;
-  border-radius: var(--r-panel);
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
 }
 .slip-area-title {
-  font-size: 1.15rem;
-  font-weight: 750;
+  font-size: var(--text-sm);
+  font-weight: 600;
 }
 .slip-message {
   color: var(--bad);
-  font-weight: 650;
+  font-size: var(--text-sm);
 }
 .slip-actions {
   display: flex;
@@ -997,7 +1202,7 @@ input:focus-visible {
   display: flex;
   justify-content: center;
   padding-bottom: 0.5rem;
-  filter: drop-shadow(0 1px 1px rgba(10, 36, 16, 0.45)) drop-shadow(0 6px 8px rgba(10, 36, 16, 0.18));
+  filter: drop-shadow(0 1px 1px rgb(18 40 24 / 0.35)) drop-shadow(0 6px 8px rgb(18 40 24 / 0.14));
 }
 .slip {
   width: 80mm;
@@ -1030,7 +1235,7 @@ input:focus-visible {
 }
 .slip-title {
   font-size: 11pt;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.02em;
 }
 .slip-reprint {
@@ -1039,7 +1244,7 @@ input:focus-visible {
   padding: 0.3mm 3mm;
   border: 0.4mm solid #000000;
   font-size: 9pt;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.12em;
 }
 .slip-rule {
@@ -1057,25 +1262,25 @@ input:focus-visible {
 .slip-label {
   margin-top: 1.5mm;
   font-size: 8pt;
-  font-weight: 650;
+  font-weight: 400;
 }
 .slip-value {
   font-size: 11pt;
-  font-weight: 650;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 .slip-name {
   font-size: 13pt;
-  font-weight: 800;
+  font-weight: 600;
 }
 .slip-code-field {
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: 12pt;
 }
 .slip-scan {
   margin: 2mm 0 1.5mm;
   font-size: 9pt;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.03em;
 }
 .slip-qr {
@@ -1089,9 +1294,9 @@ input:focus-visible {
 }
 .slip-code {
   margin-top: 1mm;
-  font-family: var(--font-mono);
+  font-family: var(--font-code);
   font-size: 12pt;
-  font-weight: 800;
+  font-weight: 600;
   letter-spacing: 0.08em;
 }
 .slip-issued,
@@ -1100,6 +1305,17 @@ input:focus-visible {
 }
 
 /* ── smaller screens ────────────────────────────────────────────────────────────────────────────────── */
+/* the slip (80 mm = about 330 px) needs room beside the member: when the card is narrower than that it comes out underneath */
+@media (max-width: 76rem) {
+  .detail.has-slip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .detail > .slip-area {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: start;
+  }
+}
 @media (max-width: 62rem) {
   #app {
     height: auto;
@@ -1119,14 +1335,6 @@ input:focus-visible {
   .results {
     max-height: 22rem;
   }
-  .detail.has-slip {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .detail > .slip-area {
-    grid-column: 1;
-    grid-row: auto;
-    justify-self: start;
-  }
   .recent {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1139,32 +1347,35 @@ input:focus-visible {
 }
 
 @media (max-width: 36rem) {
-  html {
-    font-size: 100%;
+  .topbar {
+    padding: 0.5rem 0.75rem;
+  }
+  .banners {
+    padding: 0.5rem 0.75rem 0;
   }
   .desk {
-    padding: 0.5rem;
+    padding: 0.75rem;
   }
   .detail {
     padding: 1rem;
   }
-  .detail-name {
-    font-size: 1.6rem;
+  .login {
+    padding: 1rem;
+  }
+  .login-panel {
+    padding: 1.5rem 1.25rem 1.25rem;
   }
   .slip-area {
     width: 100%;
   }
   .dialog-form {
-    padding: 1rem;
+    padding: 1.25rem 1rem;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .slip-feed {
     animation: none;
-  }
-  .btn:active:not(:disabled) {
-    transform: none;
   }
 }
 
