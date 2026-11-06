@@ -43,8 +43,7 @@ export function createTopbar({ onRefresh, onLock, onSignOut }) {
     h(
       'div',
       { class: 'topbar-election' },
-      h('h1', { class: 'topbar-brand' }, ''),
-      (titleEl = h('p', { class: 'election-title' }, 'No election is open')),
+      h(titleEl = h('p', { class: 'election-title' }, 'No election is open')),
       (detailEl = h('p', { class: 'election-detail' })),
     ),
     h(
