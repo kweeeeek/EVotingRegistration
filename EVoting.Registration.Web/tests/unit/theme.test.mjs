@@ -86,10 +86,13 @@ describe('forest green', () => {
     assert.equal(t['--focus'], '#228b22');
   });
 
-  test("the browser's own colour (address bar on a phone) and the tab icon are the same green", async () => {
-    assert.match(await read('index.html'), /<meta name="theme-color" content="#228b22">/);
-    const favicon = await read('favicon.svg');
-    assert.match(favicon, /<rect width="32" height="32" rx="6" fill="#228b22"\/>/);
+  test("the browser's own colour (address bar on a phone) is that green, and the page links the tab icon, which is the logo", async () => {
+    // Until 4 Nov 2026 the tab icon was a plain forest-green tile and this test compared its colour with the browser colour. The tab icon is now
+    // the logo (a traced drawing with many colours), so only the browser colour is compared with the green; the icon must still be there, linked and sized.
+    const page = await read('index.html');
+    assert.match(page, /<meta name="theme-color" content="#228b22">/);
+    assert.match(page, /<link rel="icon" type="image\/svg\+xml" href="favicon\.svg">/);
+    assert.match(await read('favicon.svg'), /<svg[^>]*\swidth="\d+"[^>]*\sheight="\d+"/, 'favicon.svg is an SVG with a size');
   });
 
   test('white on plain forest green is 4.39:1: enough for shapes (3:1), a hair under what small type needs (4.5:1)', async () => {
