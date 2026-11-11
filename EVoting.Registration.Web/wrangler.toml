@@ -1,0 +1,18 @@
+name = "evotingregistrationapp"
+main = "src/index.js"
+compatibility_date = "2026-11-04"
+
+# No bindings are configured for this Worker.
+# Add KV namespaces, R2 buckets, D1 databases, vars, or secrets here as needed.
+# Example:
+# [[kv_namespaces]]
+# binding = "MY_KV"
+# id = "your-kv-namespace-id"
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
