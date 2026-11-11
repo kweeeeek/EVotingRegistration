@@ -106,12 +106,27 @@ class FakeElement {
   }
 }
 
+// A browser refuses a tag name that is not a name: document.createElement('[object HTMLParagraphElement]') throws
+// InvalidCharacterError. That is what happened when an element was handed to h() where a tag name belongs (the top bar, 6 Nov 2026):
+// the page never got past "Starting the registration desk...". The fake DOM refuses it too, so that `npm test` sees it without a browser.
+const VALID_TAG_NAME = /^[A-Za-z_:][A-Za-z0-9_:.-]*$/;
+
+function checkedTagName(method, tag) {
+  const name = String(tag);
+  if (!VALID_TAG_NAME.test(name)) {
+    const error = new Error(`Failed to execute '${method}' on 'Document': The tag name provided ('${name}') is not a valid name.`);
+    error.name = 'InvalidCharacterError';
+    throw error;
+  }
+  return name;
+}
+
 /** Puts a fake `document` on globalThis. Call `restore()` when done. */
 export function installFakeDom() {
   const registry = new Map();
   const document = {
-    createElement: (tag) => new FakeElement(document, String(tag).toLowerCase(), 'http://www.w3.org/1999/xhtml'),
-    createElementNS: (namespace, tag) => new FakeElement(document, String(tag), namespace),
+    createElement: (tag) => new FakeElement(document, checkedTagName('createElement', tag).toLowerCase(), 'http://www.w3.org/1999/xhtml'),
+    createElementNS: (namespace, tag) => new FakeElement(document, checkedTagName('createElementNS', tag), namespace),
     createTextNode: (data) => new FakeText(document, data),
     getElementById: (id) => registry.get(id) ?? null,
     /** Test helper: makes an element findable by id (like markup in index.html). */

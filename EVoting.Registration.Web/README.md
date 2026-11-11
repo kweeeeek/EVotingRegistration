@@ -140,7 +140,7 @@ way. Rows TW-30 to TW-35 check both on the real printer and a real kiosk.
 
 ```bash
 npm ci                 # once: the test tools only (acorn, axe-core, jsqr, playwright, pngjs) - the page itself has no dependencies
-npm test               # 614 unit tests, about 7 seconds, no browser
+npm test               # the unit tests, about 7 seconds, no browser
 npm run test:e2e       # 105 tests in Chromium against a stand-in API, about 2 minutes (needs openssl, poppler-utils for the print tests)
 npm run test:deploy    # the nginx example of docs/WEB-DEPLOY.md on a real nginx in front of the stand-in API, under 15 seconds (needs nginx; without it the test says "skipped")
 npm run check          # is this folder ready to upload

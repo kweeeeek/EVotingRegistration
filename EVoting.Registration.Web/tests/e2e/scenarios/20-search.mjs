@@ -143,7 +143,7 @@ test('search: keyboard - Enter with several matches only points at the first; ar
   assert.equal(await searchBox(page).inputValue(), '');
   assert.equal((await resultRows(page)).length, 0);
 
-  await page.locator('.topbar-brand').click();
+  await page.locator('.election-title').click(); // somewhere that is not a field: the cursor leaves the search box
   await page.keyboard.press('/');
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'search-input');
 });
