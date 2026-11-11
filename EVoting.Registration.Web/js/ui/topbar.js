@@ -37,14 +37,17 @@ export function createTopbar({ onRefresh, onLock, onSignOut }) {
   let pillText;
   let userEl;
 
+  titleEl = h('p', { class: 'election-title' }, 'No election is open');
+  detailEl = h('p', { class: 'election-detail' });
+
   const el = h(
     'header',
     { class: 'topbar' },
     h(
       'div',
       { class: 'topbar-election' },
-      h(titleEl = h('p', { class: 'election-title' }, 'No election is open')),
-      (detailEl = h('p', { class: 'election-detail' })),
+      titleEl,
+      detailEl,
     ),
     h(
       'div',
