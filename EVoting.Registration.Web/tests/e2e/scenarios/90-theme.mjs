@@ -57,12 +57,12 @@ test('theme: the colour of the desk is literally forest green (#228B22) - the li
   assert.equal(await page.locator('meta[name="theme-color"]').getAttribute('content'), '#228b22');
   assert.deepEqual(await textOnPlainForest(page), [], 'text sits directly on plain forest green (4.39:1 is only for the main button)');
 
-  // the desk: a white top bar with the green mark, not a green bar
+  // the desk: a white top bar, not a green bar (the green tile with the tick that used to sit in it was taken out of the top bar on 5-6 Nov 2026)
   await signedIn(page);
   await page.mouse.move(0, 0);
   const bar = await paint(page.locator('.topbar'), 'background-color', 'color');
   assert.equal(bar['background-color'], WHITE);
-  assert.equal((await paintPseudo(page.locator('.topbar-brand'), '::before', 'background-color'))['background-color'], FOREST);
+  assert.equal(await page.locator('.topbar-brand').count(), 0, 'the brand tile is no longer part of the top bar');
 
   // the chosen row and the main button
   await typeInSearch(page, 'A0001');

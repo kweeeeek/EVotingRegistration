@@ -43,7 +43,10 @@ export function createTopbar({ onRefresh, onLock, onSignOut }) {
     h(
       'div',
       { class: 'topbar-election' },
-      h(titleEl = h('p', { class: 'election-title' }, 'No election is open')),
+      // The desk's one level-one heading. It is not shown (the green tile and the name were taken out of the top bar on 5-6 Nov 2026), but a screen
+      // reader needs it to name the page, and the accessibility check of the browser tests (axe: page-has-heading-one) fails without it.
+      h('h1', { class: 'visually-hidden' }, 'E-Voting Registration'),
+      (titleEl = h('p', { class: 'election-title' }, 'No election is open')),
       (detailEl = h('p', { class: 'election-detail' })),
     ),
     h(
