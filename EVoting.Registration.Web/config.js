@@ -27,7 +27,7 @@ export default Object.freeze({
   /** How often to check that the server answers while nothing else is happening. */
   heartbeatSeconds: 30,
   /** How often to ask which election is open. */
-  eventRefreshSeconds: 60,
+  eventRefreshSeconds: 30,
 
   /** Enter in the search box issues the QR when exactly one member matches (otherwise it only selects). */
   quickIssue: true,
