@@ -98,7 +98,7 @@ in, or when a licence file is missing.
 | `requestTimeoutMs` | `15000` | give up on a request after this long |
 | `issueTimeoutMs` | `20000` | give up on *Issue QR* after this long (it is then listed as *not confirmed*) |
 | `heartbeatSeconds` | `30` | how often to check that the server answers while nothing else happens |
-| `eventRefreshSeconds` | `60` | how often to ask which election is open |
+| `eventRefreshSeconds` | `30` | how often to ask which election is open (also how soon a desk notices that its account signed in on another computer) |
 | `quickIssue` | `true` | Enter issues when exactly one member matches (otherwise Enter only selects) |
 | `autoPrint` | `true` | open the print dialog as soon as the server has recorded the QR |
 | `clearAfterIssue` | `true` | empty the search box and return to it after an issuance |

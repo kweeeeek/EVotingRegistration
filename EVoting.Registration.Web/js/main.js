@@ -32,7 +32,7 @@ const DEFAULTS = Object.freeze({
   requestTimeoutMs: 15000,
   issueTimeoutMs: 20000,
   heartbeatSeconds: 30,
-  eventRefreshSeconds: 60,
+  eventRefreshSeconds: 30,
   quickIssue: true,
   autoPrint: true,
   clearAfterIssue: true,
