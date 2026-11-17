@@ -100,7 +100,7 @@ export function start({ config: override, root = document.getElementById('app') 
     getToken: () => auth.getToken(),
     timeoutMs: cfg.requestTimeoutMs,
     onOutcome: (o) => connectivity.noteOutcome(o),
-    onUnauthorized: () => auth.expire(),
+    onUnauthorized: (failure) => auth.expire(failure?.code),
     getCspViolation: () => (lastViolation && Date.now() - lastViolation.at < 10000 ? lastViolation : null),
   });
   const issuer = createIssuer({ api, records, getEvent: () => app.event, issueTimeoutMs: cfg.issueTimeoutMs });

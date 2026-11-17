@@ -112,7 +112,7 @@ export function normalizeEvent(raw) {
  * @param {typeof fetch} [options.fetchFn]
  * @param {number} [options.timeoutMs]
  * @param {(info: {status: number|null, failure: ApiFailure|null}) => void} [options.onOutcome]  every finished call, for the connection indicator
- * @param {() => void} [options.onUnauthorized]  an authorised call came back 401
+ * @param {(failure: ApiFailure|null) => void} [options.onUnauthorized]  an authorised call came back 401 (failure.code tells why, e.g. SESSION_REPLACED)
  * @param {() => (object|null)} [options.getCspViolation]  the most recent CSP violation seen by the page, if any
  */
 export function createApi({ base, sameOrigin, getToken, fetchFn, timeoutMs = 15000, onOutcome, onUnauthorized, getCspViolation }) {
@@ -237,7 +237,7 @@ export function createApi({ base, sameOrigin, getToken, fetchFn, timeoutMs = 150
   function finish(result, { status = null, unauthorized = false, local = false } = {}) {
     if (!result.ok && result.failure.kind === FailureKind.Cancelled) return result; // not an outcome: nothing was learned about the server
     if (!local) onOutcome?.({ status, failure: result.ok ? null : result.failure });
-    if (unauthorized) onUnauthorized?.();
+    if (unauthorized) onUnauthorized?.(result.ok ? null : result.failure);
     return result;
   }
 

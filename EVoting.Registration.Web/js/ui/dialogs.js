@@ -145,7 +145,9 @@ export function createLockDialog({ onUnlock, onSignOut }) {
           ? `Locked after ${idleMinutes} minute${idleMinutes === 1 ? '' : 's'} without activity. The member list is hidden until you sign in again.`
           : reason === 'expired'
             ? 'Your session ended. Sign in again to continue; the records of this session are kept.'
-            : 'The screen is locked. The member list is hidden until you sign in again.';
+            : reason === 'replaced'
+              ? 'This account was signed in on another computer, so this desk was signed out. Signing in again here will sign out the other computer.'
+              : 'The screen is locked. The member list is hidden until you sign in again.';
       setText(reasonEl, lead);
       if (!dialog.open) dialog.showModal();
       passEl.focus();
