@@ -17,6 +17,8 @@ export const LockReason = Object.freeze({
   Idle: 'idle',
   /** The server refused the token (401) or it is about to run out. */
   Expired: 'expired',
+  /** The same account signed in on another computer (server code SESSION_REPLACED); only one sign-in per account. */
+  Replaced: 'replaced',
 });
 
 const IDLE_CHECK_MS = 15000;
@@ -157,9 +159,9 @@ export function createAuth({ api, idleMs, now = () => Date.now(), timers, onChan
 
     lock,
 
-    /** The server answered 401 to a call made with the token. */
-    expire() {
-      return lock(LockReason.Expired);
+    /** The server answered 401 to a call made with the token. `code` is the server's reason, if it gave one. */
+    expire(code) {
+      return lock(code === 'SESSION_REPLACED' ? LockReason.Replaced : LockReason.Expired);
     },
 
     /** Ends the session and forgets who it was. */
