@@ -159,10 +159,28 @@ describe('the code scanner (tools/lint.mjs) notices what it must', { skip: NEEDS
     }
   });
 
-  test('the lists cannot be changed while the scanner runs, and the exception stays a single file', () => {
+  test('the lists cannot be changed while the scanner runs, and each exception stays in the one file that needs it', () => {
     assert.equal(Object.isFrozen(FORBIDDEN_NAMES), true);
     assert.equal(Object.isFrozen(ALLOWED_IN), true);
-    assert.deepEqual(ALLOWED_IN, { fetch: ['js/api.js'] });
+    // network calls: js/api.js, plus the service worker fetching the page's own files; offline mode (venue with no signal):
+    // the encrypted store, the service-worker registration and the page-file cache, each in exactly one file
+    assert.deepEqual(ALLOWED_IN, {
+      fetch: ['js/api.js', 'sw.js'],
+      indexedDB: ['js/offline/idb.js'],
+      serviceWorker: ['js/offline/sw-register.js'],
+      caches: ['sw.js'],
+    });
+  });
+
+  test('offline-mode features are still refused everywhere else', async () => {
+    const acorn = await loadAcorn();
+    if (!acorn) return;
+    const names = (src, file) => lintSource(acorn, src, file).map((f) => f.name);
+    assert.deepEqual(names('indexedDB.open("x");', 'js/main.js'), ['indexedDB']);
+    assert.deepEqual(names('navigator.serviceWorker.register("x");', 'js/offline/idb.js'), ['serviceWorker']);
+    assert.deepEqual(names('caches.open("x");', 'js/offline/desk.js'), ['caches']);
+    assert.deepEqual(names('localStorage.setItem("a","b");', 'js/offline/idb.js'), ['localStorage']);
+    assert.deepEqual(names('indexedDB.open("x");', 'js/offline/idb.js'), []);
   });
 
   test('every forbidden name comes with a reason', () => {
@@ -307,10 +325,11 @@ describe('the Content-Security-Policy', () => {
         for (const name of ['base-uri', 'form-action', 'object-src']) assert.equal(directives[name], "'none'", name);
       });
 
-      test('a string cannot become script or markup: Trusted Types are required and no policy may be created', async () => {
+      test('a string cannot become script or markup: Trusted Types are required and only the one service-worker policy may be created', async () => {
         const { directives } = (await policies())[where];
         assert.equal(directives['require-trusted-types-for'], "'script'");
-        assert.equal(directives['trusted-types'], "'none'");
+        // js/offline/sw-register.js: the single policy, which accepts nothing but the page's own ./sw.js
+        assert.equal(directives['trusted-types'], 'evoting-sw');
       });
 
       test('no unsafe keyword, no wildcard, no data:/blob: sources', async () => {

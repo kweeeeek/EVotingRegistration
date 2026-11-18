@@ -24,6 +24,12 @@ import { createBannerList, createTopbar } from './ui/topbar.js';
 import { createSearchPanel } from './ui/search-panel.js';
 import { createDetailPanel } from './ui/detail-panel.js';
 import { createRecentBar, createRecordsDialog } from './ui/records-ui.js';
+import { UnlockFailure, createMemoryBackend, createOfflineDesk } from './offline/desk.js';
+import { idbExists, openIdbBackend } from './offline/idb.js';
+import { createOfflineApi, flushOutbox } from './offline/local-api.js';
+import { PackageError, describePackage, openPackage } from './offline/package.js';
+import { keepPageOffline } from './offline/sw-register.js';
+import { createImportDialog, createOfflineBar } from './ui/offline-ui.js';
 
 const DEFAULTS = Object.freeze({
   apiBaseUrl: '',
@@ -36,7 +42,21 @@ const DEFAULTS = Object.freeze({
   quickIssue: true,
   autoPrint: true,
   clearAfterIssue: true,
+  offlineMode: true,
+  offlineValidDays: 3,
 });
+
+/** What the sign-in says when the server cannot be reached and this PC cannot sign the user in offline either. */
+export function describeOfflineRefusal(reason, info) {
+  switch (reason) {
+    case UnlockFailure.Expired:
+      return `The offline preparation on this PC for this user expired${info ? ` on ${formatDateTime(new Date(info.expiresAt))}` : ''}. Prepare it again while online.`;
+    case UnlockFailure.WrongPassword:
+      return 'Wrong password (checked against the offline data on this PC, because the server cannot be reached).';
+    default:
+      return 'This PC is not prepared for offline work for this user: sign in here while online and press "Prepare for offline" first.';
+  }
+}
 
 const IDLE_SEARCH = Object.freeze({ phase: 'idle', query: '', foldedQuery: '', members: [], truncated: false, message: '', sequence: 0, preview: false, stale: false });
 
@@ -65,7 +85,7 @@ function showFatal(root, text) {
   );
 }
 
-export function start({ config: override, root = document.getElementById('app') } = {}) {
+export function start({ config: override, root = document.getElementById('app'), offlineBackend } = {}) {
   const cfg = { ...DEFAULTS, ...(override ?? defaultConfig) };
 
   const configProblem = validateApiBaseUrl(cfg.apiBaseUrl);
@@ -94,7 +114,7 @@ export function start({ config: override, root = document.getElementById('app') 
     idleMs: cfg.idleLockMinutes * 60 * 1000,
     onChange: onAuthChange,
   });
-  api = createApi({
+  const liveApi = createApi({
     base,
     sameOrigin,
     getToken: () => auth.getToken(),
@@ -103,6 +123,46 @@ export function start({ config: override, root = document.getElementById('app') 
     onUnauthorized: (failure) => auth.expire(failure?.code),
     getCspViolation: () => (lastViolation && Date.now() - lastViolation.at < 10000 ? lastViolation : null),
   });
+
+  // ── offline mode (js/offline/) ─────────────────────────────────────────────────────────────────────
+  // While signed in OFFLINE, the election, the search and "issue" are answered from the member list prepared on this PC
+  // (offlineApi); otherwise everything goes to the server exactly as before.
+  const offline = {
+    desk: null, // the offline desk of this PC (IndexedDB), null when the browser cannot keep data
+    session: null, // this user's key for the offline data, after an online or offline sign-in
+    api: null, // non-null while signed in offline
+    info: null, // what is prepared on this PC for this user (no member data)
+    waiting: 0, // QR issuances made offline and not yet received by the server
+    busy: false,
+  };
+  // The browser storage is opened only when offline mode is really used ("Prepare for offline", an imported package, an offline
+  // sign-in or an issuance made offline): a desk that never works offline keeps nothing in the browser.
+  let deskOpening = null;
+  async function getDesk({ create }) {
+    if (!cfg.offlineMode) return null;
+    if (offline.desk) return offline.desk;
+    if (!create && !offlineBackend && !(await idbExists())) return null;
+    deskOpening ??= (offlineBackend ? Promise.resolve(offlineBackend) : openIdbBackend())
+      .then((backend) => (offline.desk = createOfflineDesk({ backend, validDays: cfg.offlineValidDays })))
+      .catch(() => {
+        deskOpening = null;
+        return null;
+      });
+    return deskOpening;
+  }
+  if (cfg.offlineMode) keepPageOffline();
+
+  api = {
+    base: liveApi.base,
+    sameOrigin: liveApi.sameOrigin,
+    login: (u, p, o) => liveApi.login(u, p, o),
+    ping: (o) => liveApi.ping(o),
+    getCurrentEvent: (o) => (offline.api ? offline.api.getCurrentEvent(o) : liveApi.getCurrentEvent(o)),
+    searchMembers: (q, b, o) => (offline.api ? offline.api.searchMembers(q, b, o) : liveApi.searchMembers(q, b, o)),
+    markQrIssued: (id, o) => (offline.api ? offline.api.markQrIssued(id, o) : liveApi.markQrIssued(id, o)),
+    getRoster: (b, o) => liveApi.getRoster(b, o),
+    markQrIssuedBulk: (items, o) => liveApi.markQrIssuedBulk(items, o),
+  };
   const issuer = createIssuer({ api, records, getEvent: () => app.event, issueTimeoutMs: cfg.issueTimeoutMs });
 
   // ── what the screen shows ───────────────────────────────────────────────────────────────────────────
@@ -161,7 +221,10 @@ export function start({ config: override, root = document.getElementById('app') 
   });
 
   const desk = h('main', { class: 'desk', id: 'desk', hidden: true }, h('div', { class: 'desk-grid' }, searchPanel.el, detail.el), recent.el);
-  setChildren(root, topbar.el, banners.el, login.el, desk, confirm.el, lockDialog.el, recordsDialog.el);
+  const offlineBar = createOfflineBar({ onPrepare: () => prepareOffline(), onImport: () => importPackage() });
+  const importDialog = createImportDialog({ describe: describePackage });
+  offlineBar.el.hidden = true;
+  setChildren(root, topbar.el, offlineBar.el, banners.el, login.el, desk, confirm.el, lockDialog.el, recordsDialog.el, importDialog.el);
   topbar.el.hidden = true;
 
   // ── rendering ───────────────────────────────────────────────────────────────────────────────────────
@@ -177,7 +240,8 @@ export function start({ config: override, root = document.getElementById('app') 
     login.setConnectivity(c);
     banners.update(
       composeBanners({
-        connectivity: { ...c, lastProblem: diagnosis ? null : c.lastProblem },
+        // signed in offline: the 'no QR can be issued' warning does not apply - the offline strip says how the desk works
+        connectivity: a.offline ? { ...c, status: Reachability.Unknown, lastProblem: null } : { ...c, lastProblem: diagnosis ? null : c.lastProblem },
         event: { status: app.eventStatus, message: app.eventMessage },
         configProblem: diagnosis,
         needAttention: counts.unacknowledged,
@@ -187,7 +251,18 @@ export function start({ config: override, root = document.getElementById('app') 
       }),
     );
 
+    offlineBar.el.hidden = !signedIn || !cfg.offlineMode;
     if (!signedIn) return; // while locked or signed out, no member data is drawn
+
+    offlineBar.update({
+      offlineSession: a.offline,
+      info: offline.info,
+      waiting: offline.waiting,
+      online: c.status === Reachability.Online,
+      canPrepare: !a.offline && c.status === Reachability.Online && !!app.event && !!offline.session,
+      canImport: !!offline.session,
+      busy: offline.busy,
+    });
 
     topbar.update({ event: app.event, eventStatus: app.eventStatus, connectivity: c, displayName: a.displayName || a.username });
     const rows = app.search.members;
@@ -197,7 +272,7 @@ export function start({ config: override, root = document.getElementById('app') 
       member: selected,
       qrIssuedAt: selected ? issuer.effectiveQrIssuedAt(selected) : null,
       event: app.event,
-      offline: c.status === Reachability.Offline,
+      offline: c.status === Reachability.Offline && !a.offline,
       issuing: app.issuing,
       searchPending: app.search.phase === 'loading',
       autoPrint: cfg.autoPrint,
@@ -214,12 +289,168 @@ export function start({ config: override, root = document.getElementById('app') 
   }
   records.subscribe(scheduleRender);
   connectivity.subscribe(scheduleRender);
+  let lastReach = null;
+  connectivity.subscribe((c) => {
+    const back = c.status === Reachability.Online && lastReach !== Reachability.Online;
+    lastReach = c.status;
+    if (!back || auth.state.status !== AuthStatus.SignedIn) return;
+    if (!auth.state.offline) {
+      sendOutbox(); // signed in online: anything still waiting goes now
+      return;
+    }
+    // signed in OFFLINE and the server answers again: the issuances can only be sent after an online sign-in
+    if (!app.extraBanners.some((b) => b.key === 'offline-back')) {
+      app.extraBanners = [
+        ...app.extraBanners,
+        { key: 'offline-back', title: 'The server answers again', detail: 'Press Lock and type your password: the desk then works online again and sends the QR issuances made offline.' },
+      ];
+      scheduleRender();
+    }
+  });
 
   // ── sign-in, lock, sign-out ─────────────────────────────────────────────────────────────────────────
   async function onSignIn(username, password) {
     const r = await auth.signIn(username, password);
-    if (r.ok) return { ok: true };
+    if (r.ok) {
+      startDeskSession(username, password); // the key for this PC's offline data (nothing is stored until "Prepare for offline")
+      return { ok: true };
+    }
+    if (r.failure?.noResponseFromServer && cfg.offlineMode) return signInOffline(username, password, describeLoginFailure(r.failure).message);
     return { ok: false, ...(r.failure ? describeLoginFailure(r.failure) : { message: r.message }) };
+  }
+
+  // ── offline mode ──────────────────────────────────────────────────────────────────────────────────
+
+  /** No server: sign in from the offline data prepared on this PC (the password opens it). */
+  async function signInOffline(username, password, serverMessage) {
+    const desk = await getDesk({ create: false });
+    // the server's own "could not be reached" stays first; what offline mode can or cannot do follows
+    if (!desk) return { ok: false, message: `${serverMessage} ${describeOfflineRefusal(UnlockFailure.NotPrepared)}` };
+    const u = await desk.unlock(username, password);
+    if (!u.ok) return { ok: false, message: u.reason === UnlockFailure.WrongPassword ? describeOfflineRefusal(u.reason) : `${serverMessage} ${describeOfflineRefusal(u.reason, u.info)}` };
+    useOfflineData(u);
+    auth.signInOffline({
+      username: u.session.username,
+      displayName: u.session.displayName,
+      verify: async (pw) => (await desk.unlock(u.session.username, pw)).ok,
+    });
+    return { ok: true, offline: true };
+  }
+
+  function useOfflineData(u) {
+    offline.session = u.session;
+    offline.info = u.info;
+    offline.api = createOfflineApi({ event: u.event, members: u.members, desk: offline.desk, username: u.session.username });
+    refreshWaiting();
+  }
+
+  async function startDeskSession(username, password) {
+    if (!cfg.offlineMode) return;
+    // Existing offline data on this PC: use its salt. None yet: the key is made in memory only, and nothing is written to the
+    // browser until "Prepare for offline" or "Import USB package".
+    const desk = (await getDesk({ create: false })) ?? createOfflineDesk({ backend: createMemoryBackend(), validDays: cfg.offlineValidDays });
+    try {
+      offline.session = await desk.startSession(username, password, auth.state.displayName);
+      offline.info = offline.desk ? await offline.desk.status(username) : null;
+    } catch {
+      offline.session = null;
+    }
+    await sendOutbox();
+    scheduleRender();
+  }
+
+  async function refreshWaiting() {
+    if (!offline.desk) return;
+    try {
+      offline.waiting = (await offline.desk.pending()).length;
+    } catch {
+      /* the count is information only */
+    }
+    scheduleRender();
+  }
+
+  /** Online and signed in: send what this PC issued offline (every user's), with the time it was issued. */
+  let sending = false;
+  async function sendOutbox() {
+    const a = auth.state;
+    if (!offline.desk || sending || a.status !== AuthStatus.SignedIn || a.offline) return;
+    sending = true;
+    try {
+      const r = await flushOutbox({ desk: offline.desk, api: liveApi });
+      if (r.ok && (r.sent > 0 || r.unknown.length > 0)) {
+        for (const rec of records.list({ mode: 'recent', includeAcknowledged: true })) {
+          if (rec.offline && rec.state === RecordState.Confirmed) records.update(rec.id, { offline: false, message: 'Issued offline; the server has it now.' });
+        }
+        app.extraBanners = [
+          ...app.extraBanners.filter((b) => b.key !== 'offline-sent'),
+          {
+            key: 'offline-sent',
+            title: `Sent to the server: ${r.sent} QR issuance${r.sent === 1 ? '' : 's'} made offline`,
+            detail: r.unknown.length > 0 ? `${r.unknown.length} member(s) are no longer known to the server (removed or deactivated) and were left out.` : 'They carry the time they were issued on this PC.',
+          },
+        ];
+      }
+    } finally {
+      sending = false;
+      await refreshWaiting();
+    }
+  }
+
+  /** "Prepare for offline": the open election and EVERY member of its branches, stored on this PC encrypted with the password. */
+  async function prepareOffline() {
+    const desk = await getDesk({ create: true });
+    if (!desk || !offline.session || offline.busy) return;
+    offline.busy = true;
+    app.notice = { kind: 'info', text: 'Preparing for offline: downloading the member list…' };
+    scheduleRender();
+    try {
+      const ev = await liveApi.getCurrentEvent();
+      if (!ev.ok || !ev.event) {
+        app.notice = { kind: 'error', text: ev.ok ? 'No election is open, so there is nothing to prepare. Import a Registration package from USB instead.' : `The election could not be read: ${ev.failure.message}` };
+        return;
+      }
+      const roster = await liveApi.getRoster(ev.event.branchIds);
+      if (!roster.ok) {
+        app.notice = { kind: 'error', text: `The member list could not be downloaded: ${roster.failure.message}` };
+        return;
+      }
+      offline.info = await desk.prepare(offline.session, { event: ev.raw, members: roster.members, source: 'online' });
+      app.notice = { kind: 'success', text: `Ready for offline: "${offline.info.eventTitle}", ${offline.info.memberCount} members, usable until ${formatDateTime(new Date(offline.info.expiresAt))}.` };
+    } catch (err) {
+      app.notice = { kind: 'error', text: `This PC could not be prepared for offline: ${err && err.message ? err.message : 'the browser refused to store the data'}.` };
+    } finally {
+      offline.busy = false;
+      scheduleRender();
+    }
+  }
+
+  /** "Import USB package": a Registration package (.evreg) from the Admin app, for an election that is not open yet. */
+  async function importPackage() {
+    const desk = await getDesk({ create: true });
+    if (!desk || !offline.session || offline.busy) {
+      app.notice = { kind: 'error', text: 'Sign in again on this PC first (the package is stored with your password).' };
+      scheduleRender();
+      return;
+    }
+    const choice = await importDialog.ask();
+    if (!choice) return;
+    offline.busy = true;
+    scheduleRender();
+    try {
+      const pkg = await openPackage(choice.text, choice.passphrase);
+      offline.info = await desk.prepare(offline.session, { event: pkg.event, members: pkg.members, source: 'usb', exportId: pkg.exportId });
+      if (auth.state.offline) {
+        // working offline already: use the new list at once
+        offline.api = createOfflineApi({ event: pkg.event, members: pkg.members, desk, username: offline.session.username });
+        await refreshEvent({ manual: true });
+      }
+      app.notice = { kind: 'success', text: `Imported: "${offline.info.eventTitle}", ${offline.info.memberCount} members, usable offline until ${formatDateTime(new Date(offline.info.expiresAt))}.` };
+    } catch (err) {
+      app.notice = { kind: 'error', text: err instanceof PackageError ? err.message : `The package could not be imported: ${err && err.message ? err.message : 'unknown problem'}.` };
+    } finally {
+      offline.busy = false;
+      scheduleRender();
+    }
   }
 
   const describeUnlock = (r) => {
@@ -259,6 +490,13 @@ export function start({ config: override, root = document.getElementById('app') 
 
   function onAuthChange(a) {
     if (a.status === AuthStatus.SignedIn) {
+      if (!a.offline && offline.api) {
+        // was offline, the password was just accepted by the SERVER: back to normal, and send what was issued offline
+        offline.api = null;
+        app.event = null;
+        app.extraBanners = app.extraBanners.filter((b) => b.key !== 'offline-back');
+        queueMicrotask(() => sendOutbox());
+      }
       lockDialog.hide();
       showScreen('desk');
       startEventTimer();
@@ -291,6 +529,8 @@ export function start({ config: override, root = document.getElementById('app') 
       });
       if (!sure) return;
     }
+    offline.api = null;
+    offline.session = null;
     auth.signOut();
     records.clear();
     login.clear();
@@ -530,7 +770,10 @@ export function start({ config: override, root = document.getElementById('app') 
   function onRecorded(record) {
     const atTheDesk = app.selectedId === record.memberId; // false when a "Try again" for an earlier member succeeds while another is being served
     search.patchMember(record.memberId, { qrIssuedAt: record.issuedAtUtc });
-    app.notice = { kind: 'success', text: `QR issued for ${record.memberName}. Confirmed by the server.` };
+    if (record.offline) refreshWaiting(); // the strip counts what waits to be sent
+    app.notice = record.offline
+      ? { kind: 'success', text: `QR issued for ${record.memberName} OFFLINE. Saved on this PC; the server gets it when the desk is online again.` }
+      : { kind: 'success', text: `QR issued for ${record.memberName}. Confirmed by the server.` };
     printRecord(record.id, { reprint: false });
     if (cfg.clearAfterIssue && atTheDesk) {
       search.reset();

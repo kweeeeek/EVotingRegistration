@@ -31,7 +31,9 @@ export async function createLab() {
   // (the headless shell ignores --no-proxy-server and reads https_proxy). Only the browser process loses the variables.
   const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(https?|all|no)_proxy$/i.test(name)));
   const browser = await chromium.launch({
-    args: ['--host-resolver-rules=MAP registration.test 127.0.0.1, MAP api.test 127.0.0.1', '--no-proxy-server'],
+    // --ignore-certificate-errors: the test certificate is self-signed. The page's contexts already ignore it (ignoreHTTPSErrors),
+    // but Chromium fetches a service worker script (sw.js, offline mode) outside those settings and refuses it otherwise.
+    args: ['--host-resolver-rules=MAP registration.test 127.0.0.1, MAP api.test 127.0.0.1', '--no-proxy-server', '--ignore-certificate-errors'],
     env,
   });
 

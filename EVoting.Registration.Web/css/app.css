@@ -1417,3 +1417,48 @@ input[type='password']:focus-visible {
     aspect-ratio: 1;
   }
 }
+
+/* ── offline strip (js/ui/offline-ui.js): under the top bar while signed in ───────────────────────── */
+.offline-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 0.5rem 1rem 0;
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--info-line);
+  border-left-width: 4px;
+  border-radius: var(--r-md);
+  background: var(--info-tint);
+  color: var(--info);
+}
+.offline-bar[hidden] {
+  display: none;
+}
+.offline-bar[data-kind='offline'] {
+  background: var(--warn-tint);
+  border-color: var(--warn-line);
+  border-left-color: #c58a00;
+  color: var(--warn);
+}
+.offline-bar-title {
+  font-weight: 600;
+}
+.offline-bar-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+.dialog .field-label {
+  display: block;
+  margin-top: 0.625rem;
+  font-weight: 600;
+}
+.dialog .field-hint {
+  margin-top: 0.25rem;
+  color: var(--info);
+}
+.dialog input[type='password'],
+.dialog input[type='file'] {
+  width: 100%;
+}

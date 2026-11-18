@@ -17,7 +17,7 @@ const SAMPLE = 'docs/samples/nginx-evoting-registration.conf';
 
 export const NGINX_MUTATIONS = [
   ['D01', 'proxy_pass with a path: /api/ is cut off the request', 'proxy_pass $evoting_api;', 'proxy_pass $evoting_api/;'],
-  ['D02', 'the security headers are not sent on error pages (no "always" on the policy)', "trusted-types 'none'\" always;", "trusted-types 'none'\";"],
+  ['D02', 'the security headers are not sent on error pages (no "always" on the policy)', "trusted-types evoting-sw\" always;", "trusted-types evoting-sw\";"],
   ['D03', 'no Cache-Control for the page (expires -1 removed)', '    expires -1;\n', ''],
   ['D04', 'no compression (gzip off)', 'gzip on;', 'gzip off;'],
   ['D05', 'the style sheet is kept for a year (a new design would not reach the desks)', '    location / {\n        try_files $uri $uri/ =404;\n    }\n', '    location / {\n        try_files $uri $uri/ =404;\n    }\n\n    location /css/ {\n        expires 1y;\n    }\n'],

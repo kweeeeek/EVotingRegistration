@@ -44,7 +44,7 @@ The pre-flight is how browsers work (the Fetch standard), not something measured
 
    `set-api-url` changes `apiBaseUrl` in `config.js` **and** the `connect-src` of the Content-Security-Policy in `index.html` and `_headers` - three places that must name the same
    address, because a page may only talk to the addresses its policy lists. Never edit those by hand.
-3. **Upload exactly** `index.html`, `config.js`, `_headers`, `favicon.svg` and the folders `css/`, `js/`, `vendor/`. Not `tests/`, `tools/`, `docs/`, `node_modules/`, `package*.json`.
+3. **Upload exactly** `index.html`, `config.js`, `_headers`, `favicon.svg`, `sw.js` and the folders `css/`, `js/`, `vendor/`. Not `tests/`, `tools/`, `docs/`, `node_modules/`, `package*.json`.
    (`_headers` is read by Netlify and Cloudflare Pages only; on nginx or IIS it does nothing, and it is harmless there.)
 4. **Configure the host**: the headers of section 6 and, for option A, the proxy. Use the nginx example (section 3) or the IIS example (section 4) as the starting point.
 5. **Check it from outside** - section 7. Do not skip this: it finds the mistakes people really make (a script served with the wrong type, a header that nginx silently dropped, a proxy that points nowhere).
@@ -87,7 +87,7 @@ server {
 
     access_log /var/log/nginx/evoting-registration.access.log evoting;
 
-    add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'" always;
+    add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types evoting-sw" always;
     add_header X-Content-Type-Options "nosniff" always;
     add_header X-Frame-Options "DENY" always;
     add_header Referrer-Policy "no-referrer" always;
@@ -190,7 +190,7 @@ IIS Manager > the server (top node) > *Application Request Routing Cache* > *Ser
     <httpProtocol>
       <customHeaders>
         <remove name="X-Powered-By" />
-        <add name="Content-Security-Policy" value="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types 'none'" />
+        <add name="Content-Security-Policy" value="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'none'; require-trusted-types-for 'script'; trusted-types evoting-sw" />
         <add name="X-Content-Type-Options" value="nosniff" />
         <add name="X-Frame-Options" value="DENY" />
         <add name="Referrer-Policy" value="no-referrer" />

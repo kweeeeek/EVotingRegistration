@@ -18,6 +18,8 @@ export function buildSlipModel(record, { reprint = false } = {}) {
     statusLine: 'Eligible to vote',
     issuedAt,
     isReprint: reprint,
+    /** Issued while the desk was offline: the server gets it later (js/offline/). */
+    isOffline: record.offline === true,
   };
 }
 
@@ -34,6 +36,7 @@ export function renderSlip(model) {
     { class: 'slip', 'aria-label': 'Voter registration slip' },
     h('h3', { class: 'slip-title' }, 'E-VOTING VOTER REGISTRATION SLIP'),
     model.isReprint ? h('p', { class: 'slip-reprint' }, 'REPRINT') : null,
+    model.isOffline ? h('p', { class: 'slip-reprint' }, 'ISSUED OFFLINE') : null,
     h('hr', { class: 'slip-rule slip-rule-strong' }),
     h(
       'dl',

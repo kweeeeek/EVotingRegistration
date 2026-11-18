@@ -32,7 +32,14 @@ export const FORBIDDEN_NAMES = Object.freeze({
 
 /** Files allowed to use a name that is forbidden elsewhere. */
 export const ALLOWED_IN = Object.freeze({
-  fetch: ['js/api.js'],
+  fetch: ['js/api.js', 'sw.js'],
+  // Offline mode (venue with no signal), each in exactly one file:
+  //   js/offline/idb.js        stores the ENCRYPTED offline data (key from the user's password) and the outbox of ids and times
+  //   js/offline/sw-register.js registers sw.js
+  //   sw.js                    keeps a copy of the page's OWN files (never an API answer)
+  indexedDB: ['js/offline/idb.js'],
+  serviceWorker: ['js/offline/sw-register.js'],
+  caches: ['sw.js'],
 });
 
 const FORBIDDEN_ATTRIBUTE_NAMES = /^(style|srcdoc|on[a-z]+)$/i;
@@ -73,7 +80,7 @@ export function lintSource(acorn, source, file) {
       const isObjectKey = parent && parent.type === 'Property' && parent.key === node && !parent.computed && !parent.shorthand;
       const isClassMember = parent && (parent.type === 'MethodDefinition' || parent.type === 'PropertyDefinition') && parent.key === node && !parent.computed;
       if (!isObjectKey && !isClassMember) {
-        if (Object.hasOwn(FORBIDDEN_NAMES, node.name)) report(node, node.name, FORBIDDEN_NAMES[node.name]);
+        if (Object.hasOwn(FORBIDDEN_NAMES, node.name)) { if (!ALLOWED_IN[node.name]?.includes(file)) report(node, node.name, FORBIDDEN_NAMES[node.name]); }
         else if (node.name === 'fetch' && !ALLOWED_IN.fetch.includes(file)) report(node, 'fetch', 'all network calls go through js/api.js');
       }
     }
@@ -82,7 +89,7 @@ export function lintSource(acorn, source, file) {
     if (node.type === 'MemberExpression' && node.computed) {
       const spelled = staticText(node.property);
       if (spelled !== null) {
-        if (Object.hasOwn(FORBIDDEN_NAMES, spelled)) report(node, spelled, FORBIDDEN_NAMES[spelled]);
+        if (Object.hasOwn(FORBIDDEN_NAMES, spelled)) { if (!ALLOWED_IN[spelled]?.includes(file)) report(node, spelled, FORBIDDEN_NAMES[spelled]); }
         else if (spelled === 'fetch' && !ALLOWED_IN.fetch.includes(file)) report(node, 'fetch', 'all network calls go through js/api.js');
       }
     }

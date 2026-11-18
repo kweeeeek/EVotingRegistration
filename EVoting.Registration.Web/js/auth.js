@@ -23,6 +23,8 @@ export const LockReason = Object.freeze({
 
 const IDLE_CHECK_MS = 15000;
 const EXPIRY_MARGIN_MS = 30000;
+/** An offline session has no token to expire; it is re-checked (password) at least this often. */
+const OFFLINE_SESSION_MS = 8 * 60 * 60 * 1000;
 
 function base64UrlToText(segment) {
   const b64 = segment.replace(/-/g, '+').replace(/_/g, '/');
@@ -68,6 +70,7 @@ export function createAuth({ api, idleMs, now = () => Date.now(), timers, onChan
   const t = timers ?? { set: (fn, ms) => setInterval(fn, ms), clear: (id) => clearInterval(id) };
 
   let token = null;
+  let offlineVerify = null; // (password) => Promise<boolean>, while signed in offline
   let intervalId = null;
   const state = {
     status: AuthStatus.SignedOut,
@@ -77,6 +80,8 @@ export function createAuth({ api, idleMs, now = () => Date.now(), timers, onChan
     expiresAt: 0,
     lockReason: null,
     lastActivityAt: now(),
+    /** True while signed in OFFLINE (no server, no token): the password was checked by opening this PC's offline data. */
+    offline: false,
   };
 
   const snapshot = () => ({ ...state });
@@ -123,6 +128,8 @@ export function createAuth({ api, idleMs, now = () => Date.now(), timers, onChan
     const r = await api.login(username, password);
     if (!r.ok) return r;
     token = r.accessToken;
+    offlineVerify = null;
+    state.offline = false;
     state.status = AuthStatus.SignedIn;
     state.username = username;
     state.displayName = displayNameFromToken(r.accessToken, username);
@@ -154,7 +161,42 @@ export function createAuth({ api, idleMs, now = () => Date.now(), timers, onChan
     async unlock(password) {
       if (state.status !== AuthStatus.Locked) return { ok: false, message: 'The session is not locked.' };
       if (!password) return { ok: false, message: 'Enter the password.' };
-      return authenticate(state.username, password);
+      if (!state.offline) return authenticate(state.username, password);
+
+      // Signed in offline: when the server answers again, this becomes an ONLINE session (the desk can then send what it issued
+      // offline). Only when the server still does not answer is the password checked against this PC's offline data.
+      const online = await authenticate(state.username, password);
+      if (online.ok || !online.failure?.noResponseFromServer) return online;
+      const check = offlineVerify;
+      if (!check || !(await check(password))) return { ok: false, message: 'Wrong password.' };
+      state.status = AuthStatus.SignedIn;
+      state.lockReason = null;
+      state.lastActivityAt = now();
+      state.expiresAt = now() + OFFLINE_SESSION_MS;
+      startWatch();
+      emit();
+      return { ok: true, offline: true };
+    },
+
+    /**
+     * Signed in WITHOUT the server: js/main.js calls this after this PC's offline data opened with the password (js/offline/desk.js).
+     * There is no token, so nothing can be sent to the server; the session locks after idleness like any other, and `verify` checks
+     * the password again to unlock it.
+     */
+    signInOffline({ username, displayName, verify }) {
+      token = null;
+      offlineVerify = verify;
+      state.status = AuthStatus.SignedIn;
+      state.offline = true;
+      state.username = String(username ?? '').trim();
+      state.displayName = displayName || state.username;
+      state.role = 'Registration';
+      state.expiresAt = now() + OFFLINE_SESSION_MS;
+      state.lockReason = null;
+      state.lastActivityAt = now();
+      startWatch();
+      emit();
+      return { ok: true, offline: true };
     },
 
     lock,
@@ -174,6 +216,8 @@ export function createAuth({ api, idleMs, now = () => Date.now(), timers, onChan
       state.role = '';
       state.expiresAt = 0;
       state.lockReason = null;
+      state.offline = false;
+      offlineVerify = null;
       emit();
     },
 
