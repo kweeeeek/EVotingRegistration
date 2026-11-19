@@ -145,9 +145,10 @@ export function createOfflineDesk({ backend, now = () => Date.now(), validDays =
 
     // ── outbox ──────────────────────────────────────────────────────────────────────────────────
 
-    /** One QR issued while offline. Ids and times only. */
-    async queue({ id, username, memberId, eventId, issuedAtUtc }) {
-      await backend.put(Stores.Outbox, { id: String(id), user: userKey(username), memberId: Number(memberId), eventId: Number(eventId), issuedAtUtc: String(issuedAtUtc), queuedAt: now() });
+    /** One QR issued while offline. Ids, desk and times only. */
+    async queue({ id, username, memberId, eventId, deskNo = null, issuedAtUtc }) {
+      const desk = Number.isInteger(deskNo) && deskNo > 0 ? deskNo : null;
+      await backend.put(Stores.Outbox, { id: String(id), user: userKey(username), memberId: Number(memberId), eventId: Number(eventId), deskNo: desk, issuedAtUtc: String(issuedAtUtc), queuedAt: now() });
     },
 
     /** Issuances not yet received by the server, oldest first (all users of this PC when no user is given). */

@@ -51,7 +51,7 @@ export function checkIssue(member, event, { allowReissue = false } = {}) {
 export function createIssuer({ api, records, getEvent, now = () => Date.now(), issueTimeoutMs = 20000 }) {
   /** What the screen should say a member's QR time is: the later of the server's and this session's own confirmed issuance. */
   function effectiveQrIssuedAt(member) {
-    const mine = records.latestConfirmedFor(member.memberId);
+    const mine = records.latestConfirmedFor(member.memberId, getEvent()?.eventId ?? null); // a slip of an earlier election does not count
     return laterOf(member.qrIssuedAt, mine ? mine.issuedAtUtc : null);
   }
 
@@ -118,7 +118,8 @@ export function createIssuer({ api, records, getEvent, now = () => Date.now(), i
         return { issued: false, refusal: IssueRefusal.Busy, message: 'A QR for this member is already being sent.', record: sending, mayPrint: false, duplicate: true };
       }
       const last = records.lastFor(member.memberId);
-      if (last && last.state === RecordState.Confirmed && now() - last.startedAt >= 0 && now() - last.startedAt < DUPLICATE_WINDOW_MS) {
+      const sameElection = !event || !last || last.eventId === event.eventId; // a new election opened in between: a new slip is due
+      if (last && sameElection && last.state === RecordState.Confirmed && now() - last.startedAt >= 0 && now() - last.startedAt < DUPLICATE_WINDOW_MS) {
         return { issued: true, refusal: IssueRefusal.None, message: 'A QR for this member was just issued.', record: last, mayPrint: false, duplicate: true };
       }
 

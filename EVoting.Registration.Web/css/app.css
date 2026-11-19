@@ -1124,12 +1124,14 @@ input[type='password']:focus-visible {
   scrollbar-width: thin;
   scrollbar-color: var(--line-strong) transparent;
 }
-.records-table {
+.records-table,
+.desk-table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--text-sm);
 }
-.records-table th {
+.records-table,
+.desk-table th {
   position: sticky;
   top: 0;
   padding: 0.5rem 0.75rem;
@@ -1140,12 +1142,14 @@ input[type='password']:focus-visible {
   font-weight: 600;
   text-align: left;
 }
-.records-table td {
+.records-table,
+.desk-table td {
   padding: 0.625rem 0.75rem;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
 }
-.records-table tbody tr:last-child td {
+.records-table,
+.desk-table tbody tr:last-child td {
   border-bottom: 0;
 }
 .records-table tr.is-problem td:first-child {
@@ -1461,4 +1465,19 @@ input[type='password']:focus-visible {
 .dialog input[type='password'],
 .dialog input[type='file'] {
   width: 100%;
+}
+
+/* Registration desk number next to the user, and the buttons in a dialog head ("Issued at this desk") */
+.topbar-desk {
+  font-weight: 600;
+}
+.dialog-head-buttons {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.login-form select {
+  width: 100%;
+  min-height: 2.75rem;
+  font: inherit;
 }

@@ -17,6 +17,7 @@ export const HEALTH_PATH = 'api/v1/health/live';
 /** Offline preparation and catch-up (see js/offline/). */
 export const ROSTER_PATH = 'api/v1/registration/members/roster';
 export const QR_ISSUED_BULK_PATH = 'api/v1/registration/members/qr-issued-bulk';
+export const DESK_ISSUANCES_PATH = 'api/v1/registration/qr-issuances';
 export const qrIssuedPath = (memberId) => `api/v1/registration/members/${encodeURIComponent(String(memberId))}/qr-issued`;
 
 /** '' means "the same site as this page" (a reverse proxy forwards /api/ to the server). */
@@ -277,20 +278,31 @@ export function createApi({ base, sameOrigin, getToken, fetchFn, timeoutMs = 150
       return { ok: true, event, raw: r.data };
     },
 
-    /** GET registration/members/search. { ok, members } - eligible AND ineligible members; at most 200 rows. */
-    async searchMembers(query, branchIds, { signal } = {}) {
+    /**
+     * GET registration/members/search. { ok, members } - eligible AND ineligible members; at most 200 rows. With `eventId`, each
+     * member's qrIssuedAt is the QR of THAT election (null when none), not the last QR of any election.
+     */
+    async searchMembers(query, branchIds, { signal, eventId } = {}) {
       if (!Array.isArray(branchIds) || branchIds.length === 0) return { ok: true, members: [] };
       const params = [['query', query]];
       for (const id of branchIds) params.push(['branchIds', id]);
+      if (Number.isInteger(eventId) && eventId > 0) params.push(['eventId', eventId]);
       const r = await send('GET', SEARCH_PATH, { query: params, signal });
       if (!r.ok) return r;
       if (!Array.isArray(r.data)) return { ok: false, failure: new ApiFailure(FailureKind.Protocol, 'The member list was empty or malformed.') };
       return { ok: true, members: r.data.map(normalizeMember).filter(Boolean) };
     },
 
-    /** POST registration/members/{id}/qr-issued. { ok, memberId, qrIssuedAt } - the server stamps the time itself. */
-    async markQrIssued(memberId, { signal, timeoutMs: t } = {}) {
-      const r = await send('POST', qrIssuedPath(memberId), { signal, timeoutMs: t });
+    /**
+     * POST registration/members/{id}/qr-issued. { ok, memberId, qrIssuedAt } - the server stamps the time itself. `eventId` (the
+     * election on screen; the server refuses with 409 when another one is open) and `deskNo` (the desk chosen at sign-in) are sent
+     * so the server files the slip under that election and desk.
+     */
+    async markQrIssued(memberId, { signal, timeoutMs: t, eventId, deskNo } = {}) {
+      const body = {};
+      if (Number.isInteger(eventId) && eventId > 0) body.eventId = eventId;
+      if (Number.isInteger(deskNo) && deskNo > 0) body.deskNo = deskNo;
+      const r = await send('POST', qrIssuedPath(memberId), { signal, timeoutMs: t, body: Object.keys(body).length ? body : undefined });
       if (!r.ok) return r;
       const d = r.data;
       if (!d || typeof d !== 'object') return { ok: false, failure: new ApiFailure(FailureKind.Protocol, 'The QR-issuance answer could not be understood.') };
@@ -304,9 +316,10 @@ export function createApi({ base, sameOrigin, getToken, fetchFn, timeoutMs = 150
      * GET registration/members/roster: EVERY active member of the branches (no text, no 200 cap), for "Prepare for offline".
      * { ok, members } with the members exactly as the server sent them (they are stored encrypted and normalised when used).
      */
-    async getRoster(branchIds, { signal } = {}) {
+    async getRoster(branchIds, { signal, eventId } = {}) {
       if (!Array.isArray(branchIds) || branchIds.length === 0) return { ok: true, members: [] };
       const params = branchIds.map((id) => ['branchIds', id]);
+      if (Number.isInteger(eventId) && eventId > 0) params.push(['eventId', eventId]);
       const r = await send('GET', ROSTER_PATH, { query: params, signal, timeoutMs: Math.max(timeoutMs, 120000) });
       if (!r.ok) return r;
       if (!Array.isArray(r.data)) return { ok: false, failure: new ApiFailure(FailureKind.Protocol, 'The member list was empty or malformed.') };
@@ -322,6 +335,29 @@ export function createApi({ base, sameOrigin, getToken, fetchFn, timeoutMs = 150
         return { ok: false, failure: new ApiFailure(FailureKind.Protocol, 'The server answer to the offline catch-up could not be understood.') };
       }
       return { ok: true, succeededMemberIds: d.succeededMemberIds.map(asInt), failedMemberIds: d.failedMemberIds.map(asInt) };
+    },
+
+    /**
+     * GET registration/qr-issuances: the slips ONE DESK issued in ONE ELECTION, newest first.
+     * { ok, total, memberCount, items: [{ memberId, accountCode, memberName, branch, issuedAtUtc, issuedBy, offline }] }
+     */
+    async getDeskIssuances(eventId, deskNo, { signal } = {}) {
+      const r = await send('GET', DESK_ISSUANCES_PATH, { query: [['eventId', eventId], ['deskNo', deskNo]], signal });
+      if (!r.ok) return r;
+      const d = r.data;
+      if (!d || !Array.isArray(d.items)) return { ok: false, failure: new ApiFailure(FailureKind.Protocol, 'The list of this desk could not be understood.') };
+      const items = d.items
+        .map((i) => ({
+          memberId: asInt(i.memberId),
+          accountCode: asString(i.accountCode),
+          memberName: asString(i.memberName),
+          branch: asString(i.branch),
+          issuedAtUtc: asString(i.issuedAtUtc),
+          issuedBy: asString(i.issuedBy),
+          offline: i.offline === true,
+        }))
+        .filter((i) => i.memberId > 0);
+      return { ok: true, total: asInt(d.total), memberCount: asInt(d.memberCount), items };
     },
 
     /** GET health/live (anonymous). { ok } when the API process answers. */

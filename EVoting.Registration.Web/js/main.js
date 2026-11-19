@@ -30,6 +30,7 @@ import { createOfflineApi, flushOutbox } from './offline/local-api.js';
 import { PackageError, describePackage, openPackage } from './offline/package.js';
 import { keepPageOffline } from './offline/sw-register.js';
 import { createImportDialog, createOfflineBar } from './ui/offline-ui.js';
+import { createDeskListDialog } from './ui/desk-list.js';
 
 const DEFAULTS = Object.freeze({
   apiBaseUrl: '',
@@ -44,6 +45,7 @@ const DEFAULTS = Object.freeze({
   clearAfterIssue: true,
   offlineMode: true,
   offlineValidDays: 3,
+  deskCount: 30,
 });
 
 /** What the sign-in says when the server cannot be reached and this PC cannot sign the user in offline either. */
@@ -158,8 +160,9 @@ export function start({ config: override, root = document.getElementById('app'),
     login: (u, p, o) => liveApi.login(u, p, o),
     ping: (o) => liveApi.ping(o),
     getCurrentEvent: (o) => (offline.api ? offline.api.getCurrentEvent(o) : liveApi.getCurrentEvent(o)),
-    searchMembers: (q, b, o) => (offline.api ? offline.api.searchMembers(q, b, o) : liveApi.searchMembers(q, b, o)),
-    markQrIssued: (id, o) => (offline.api ? offline.api.markQrIssued(id, o) : liveApi.markQrIssued(id, o)),
+    // online, the election on screen and the desk go with every search and issue: "already issued" and the desk's list are per election
+    searchMembers: (q, b, o) => (offline.api ? offline.api.searchMembers(q, b, o) : liveApi.searchMembers(q, b, { ...o, eventId: app.event?.eventId })),
+    markQrIssued: (id, o) => (offline.api ? offline.api.markQrIssued(id, o) : liveApi.markQrIssued(id, { ...o, eventId: app.event?.eventId, deskNo: app.deskNo })),
     getRoster: (b, o) => liveApi.getRoster(b, o),
     markQrIssuedBulk: (items, o) => liveApi.markQrIssuedBulk(items, o),
   };
@@ -167,6 +170,7 @@ export function start({ config: override, root = document.getElementById('app'),
 
   // ── what the screen shows ───────────────────────────────────────────────────────────────────────────
   const app = {
+    deskNo: null, // the registration desk chosen at sign-in (1..deskCount)
     event: null,
     eventStatus: 'unknown', // unknown | open | none | error
     eventMessage: '',
@@ -190,8 +194,9 @@ export function start({ config: override, root = document.getElementById('app'),
 
   const confirm = createConfirmDialog();
   const lockDialog = createLockDialog({ onUnlock: (password) => auth.unlock(password).then(describeUnlock), onSignOut: () => signOut() });
-  const login = createLoginView({ onSignIn });
-  const topbar = createTopbar({ onRefresh: () => refreshEvent({ manual: true }), onLock: () => auth.lock('manual'), onSignOut: () => signOut() });
+  const login = createLoginView({ onSignIn, deskCount: cfg.deskCount });
+  const topbar = createTopbar({ onRefresh: () => refreshEvent({ manual: true }), onLock: () => auth.lock('manual'), onSignOut: () => signOut(), onDeskList: () => deskList.open() });
+  const deskList = createDeskListDialog({ onRefresh: () => refreshDeskList() });
   const banners = createBannerList({ onAction: onBannerAction, onDismiss: (key) => { app.dismissed.add(key); render(); } });
   const searchPanel = createSearchPanel({
     onInput,
@@ -224,7 +229,7 @@ export function start({ config: override, root = document.getElementById('app'),
   const offlineBar = createOfflineBar({ onPrepare: () => prepareOffline(), onImport: () => importPackage() });
   const importDialog = createImportDialog({ describe: describePackage });
   offlineBar.el.hidden = true;
-  setChildren(root, topbar.el, offlineBar.el, banners.el, login.el, desk, confirm.el, lockDialog.el, recordsDialog.el, importDialog.el);
+  setChildren(root, topbar.el, offlineBar.el, banners.el, login.el, desk, confirm.el, lockDialog.el, recordsDialog.el, importDialog.el, deskList.el);
   topbar.el.hidden = true;
 
   // ── rendering ───────────────────────────────────────────────────────────────────────────────────────
@@ -264,7 +269,7 @@ export function start({ config: override, root = document.getElementById('app'),
       busy: offline.busy,
     });
 
-    topbar.update({ event: app.event, eventStatus: app.eventStatus, connectivity: c, displayName: a.displayName || a.username });
+    topbar.update({ event: app.event, eventStatus: app.eventStatus, connectivity: c, displayName: a.displayName || a.username, deskNo: app.deskNo });
     const rows = app.search.members;
     const selected = rows.find((m) => m.memberId === app.selectedId) ?? null;
     searchPanel.update({ search: app.search, selectedId: app.selectedId });
@@ -309,7 +314,8 @@ export function start({ config: override, root = document.getElementById('app'),
   });
 
   // ── sign-in, lock, sign-out ─────────────────────────────────────────────────────────────────────────
-  async function onSignIn(username, password) {
+  async function onSignIn(username, password, deskNo) {
+    app.deskNo = deskNo;
     const r = await auth.signIn(username, password);
     if (r.ok) {
       startDeskSession(username, password); // the key for this PC's offline data (nothing is stored until "Prepare for offline")
@@ -340,7 +346,7 @@ export function start({ config: override, root = document.getElementById('app'),
   function useOfflineData(u) {
     offline.session = u.session;
     offline.info = u.info;
-    offline.api = createOfflineApi({ event: u.event, members: u.members, desk: offline.desk, username: u.session.username });
+    offline.api = createOfflineApi({ event: u.event, members: u.members, desk: offline.desk, username: u.session.username, getDeskNo: () => app.deskNo });
     refreshWaiting();
   }
 
@@ -393,7 +399,52 @@ export function start({ config: override, root = document.getElementById('app'),
     } finally {
       sending = false;
       await refreshWaiting();
+      if (deskList.isOpen) refreshDeskList();
     }
+  }
+
+  // ── "Issued at this desk" ───────────────────────────────────────────────────────────────────────────
+  /** Slips of this desk in the open election that wait in this PC's outbox (issued offline), with the member from the offline list. */
+  async function outboxForDesk() {
+    if (!offline.desk || !app.event) return [];
+    let items = [];
+    try {
+      items = await offline.desk.pending();
+    } catch {
+      return [];
+    }
+    return items
+      .filter((i) => i.eventId === app.event.eventId && i.deskNo === app.deskNo)
+      .map((i) => {
+        const m = offline.api?.memberById(i.memberId) ?? null;
+        return { memberId: i.memberId, accountCode: m ? m.accountCode : '', memberName: m ? m.memberName : `Member ${i.memberId}`, branch: m ? m.branch : '', issuedAtUtc: i.issuedAtUtc, issuedBy: i.user, offline: true, pending: true };
+      })
+      .reverse();
+  }
+
+  let deskListSeq = 0;
+  async function refreshDeskList() {
+    if (auth.state.status !== AuthStatus.SignedIn) return;
+    const seq = ++deskListSeq;
+    const base = { deskNo: app.deskNo, eventTitle: app.event ? app.event.title : '' };
+    if (!app.event || !app.deskNo) {
+      deskList.set({ ...base, items: [], total: 0, memberCount: 0, waiting: 0, loading: false, error: '' });
+      return;
+    }
+    const waiting = await outboxForDesk();
+    if (auth.state.offline) {
+      deskList.set({ ...base, items: waiting, total: waiting.length, memberCount: new Set(waiting.map((w) => w.memberId)).size, waiting: waiting.length, loading: false, error: 'Working offline: only the slips issued offline on this PC are listed. The full list of the desk comes back when the desk is online.' });
+      return;
+    }
+    deskList.set({ ...base, loading: true, error: '' });
+    const r = await liveApi.getDeskIssuances(app.event.eventId, app.deskNo);
+    if (seq !== deskListSeq || auth.state.status !== AuthStatus.SignedIn) return;
+    if (!r.ok) {
+      deskList.set({ ...base, items: waiting, total: waiting.length, memberCount: new Set(waiting.map((w) => w.memberId)).size, waiting: waiting.length, loading: false, error: `The list could not be read from the server: ${r.failure.message}` });
+      return;
+    }
+    const members = new Set([...r.items.map((i) => i.memberId), ...waiting.map((w) => w.memberId)]);
+    deskList.set({ ...base, items: [...waiting, ...r.items], total: r.total + waiting.length, memberCount: members.size, waiting: waiting.length, loading: false, error: '' });
   }
 
   /** "Prepare for offline": the open election and EVERY member of its branches, stored on this PC encrypted with the password. */
@@ -409,7 +460,7 @@ export function start({ config: override, root = document.getElementById('app'),
         app.notice = { kind: 'error', text: ev.ok ? 'No election is open, so there is nothing to prepare. Import a Registration package from USB instead.' : `The election could not be read: ${ev.failure.message}` };
         return;
       }
-      const roster = await liveApi.getRoster(ev.event.branchIds);
+      const roster = await liveApi.getRoster(ev.event.branchIds, { eventId: ev.event.eventId }); // "already issued" of THIS election
       if (!roster.ok) {
         app.notice = { kind: 'error', text: `The member list could not be downloaded: ${roster.failure.message}` };
         return;
@@ -441,7 +492,7 @@ export function start({ config: override, root = document.getElementById('app'),
       offline.info = await desk.prepare(offline.session, { event: pkg.event, members: pkg.members, source: 'usb', exportId: pkg.exportId });
       if (auth.state.offline) {
         // working offline already: use the new list at once
-        offline.api = createOfflineApi({ event: pkg.event, members: pkg.members, desk, username: offline.session.username });
+        offline.api = createOfflineApi({ event: pkg.event, members: pkg.members, desk, username: offline.session.username, getDeskNo: () => app.deskNo });
         await refreshEvent({ manual: true });
       }
       app.notice = { kind: 'success', text: `Imported: "${offline.info.eventTitle}", ${offline.info.memberCount} members, usable offline until ${formatDateTime(new Date(offline.info.expiresAt))}.` };
@@ -485,6 +536,7 @@ export function start({ config: override, root = document.getElementById('app'),
     clearPrintArea();
     confirm.cancel();
     recordsDialog.close();
+    deskList.clear();
     blankDesk();
   }
 
@@ -564,6 +616,7 @@ export function start({ config: override, root = document.getElementById('app'),
       const nextId = r.event ? r.event.eventId : null;
       if (eventSeen && nextId !== previousId) onElectionChanged(r.event);
       eventSeen = true;
+      if (nextId !== previousId && deskList.isOpen) refreshDeskList();
     } else if (r.failure.kind !== FailureKind.Cancelled) {
       // A blip (no answer, a 5xx, a rate limit) keeps the election that was open a moment ago; a refusal does not
       // (showing an old election after the server said no could mislead staff).
@@ -775,6 +828,7 @@ export function start({ config: override, root = document.getElementById('app'),
       ? { kind: 'success', text: `QR issued for ${record.memberName} OFFLINE. Saved on this PC; the server gets it when the desk is online again.` }
       : { kind: 'success', text: `QR issued for ${record.memberName}. Confirmed by the server.` };
     printRecord(record.id, { reprint: false });
+    if (deskList.isOpen) refreshDeskList();
     if (cfg.clearAfterIssue && atTheDesk) {
       search.reset();
       searchPanel.setValue('');
