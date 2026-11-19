@@ -338,7 +338,7 @@ describe('signing out', () => {
     assert.equal(auth.getToken(), null);
     assert.deepEqual(
       { ...auth.state, lastActivityAt: 0 },
-      { status: AuthStatus.SignedOut, username: '', displayName: '', role: '', expiresAt: 0, lockReason: null, lastActivityAt: 0 },
+      { status: AuthStatus.SignedOut, username: '', displayName: '', role: '', expiresAt: 0, lockReason: null, lastActivityAt: 0, offline: false },
     );
   });
 

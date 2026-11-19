@@ -21,7 +21,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseCsp, readApiBaseUrl, readHeaderBlock } from './lib.mjs';
 
 const DEFAULT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const UPLOAD_FILES = ['index.html', 'favicon.svg', 'config.js'];
+export const UPLOAD_FILES = ['index.html', 'favicon.svg', 'config.js', 'sw.js'];
 export const UPLOAD_FOLDERS = ['css', 'js', 'vendor'];
 const HEALTH_PATH = '/api/v1/health/live';
 

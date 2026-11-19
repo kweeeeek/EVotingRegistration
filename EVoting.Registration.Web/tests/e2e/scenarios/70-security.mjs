@@ -24,7 +24,7 @@ test('security: the page is served with the strict headers (policy, no framing, 
   const headers = response.headers();
   const csp = headers['content-security-policy'];
   assert.ok(csp, 'no Content-Security-Policy header');
-  for (const directive of ["default-src 'none'", "script-src 'self'", "style-src 'self'", "font-src 'self'", "img-src 'self'", "base-uri 'none'", "form-action 'none'", "object-src 'none'", "frame-ancestors 'none'", "require-trusted-types-for 'script'", "trusted-types 'none'"]) {
+  for (const directive of ["default-src 'none'", "script-src 'self'", "style-src 'self'", "font-src 'self'", "img-src 'self'", "base-uri 'none'", "form-action 'none'", "object-src 'none'", "frame-ancestors 'none'", "require-trusted-types-for 'script'", "trusted-types evoting-sw"]) {
     assert.ok(csp.includes(directive), `the policy lacks ${directive}: ${csp}`);
   }
   assert.match(csp, new RegExp(`connect-src 'self' ${escapeRe(site.apiUrl)};`), 'the page may talk to itself and to the one server, nobody else');
@@ -148,7 +148,10 @@ test('security: nothing about the person or the members is left in the browser, 
     cookie: document.cookie,
     databases: (await indexedDB.databases?.())?.map((d) => d.name) ?? [],
     caches: await caches.keys(),
-    workers: (await navigator.serviceWorker.getRegistrations()).length,
+    // offline mode: the service worker keeps a copy of the PAGE's own files - list every cached address
+    cachedUrls: (await Promise.all((await caches.keys()).map(async (k) => (await (await caches.open(k)).keys()).map((r) => r.url)))).flat(),
+    workers: (await navigator.serviceWorker.getRegistrations()).map((r) => (r.active ?? r.installing ?? r.waiting)?.scriptURL ?? ''),
+    origin: location.origin,
     historyState: history.state,
     windowName: window.name,
     html: document.documentElement.outerHTML,
@@ -161,9 +164,11 @@ test('security: nothing about the person or the members is left in the browser, 
   assert.deepEqual(state.session, [], 'sessionStorage is not used');
   assert.equal(state.cookie, '');
   assert.deepEqual(await context.cookies(), []);
-  assert.deepEqual(state.databases, [], 'IndexedDB is not used');
-  assert.deepEqual(state.caches, [], 'the Cache API is not used');
-  assert.equal(state.workers, 0, 'no service worker keeps copies');
+  assert.deepEqual(state.databases, [], 'IndexedDB is not used unless the desk is prepared for offline');
+  // the only cache is the page's own files (sw.js): never an answer of the server, never member data
+  assert.ok(state.caches.every((k) => k.startsWith('evoting-registration-page-')), `caches: ${state.caches}`);
+  assert.ok(state.cachedUrls.every((u) => u.startsWith(state.origin + '/') && !u.includes('/api/')), `cached: ${state.cachedUrls}`);
+  assert.ok(state.workers.every((w) => w === state.origin + '/sw.js'), `workers: ${state.workers}`);
   assert.equal(state.historyState, null);
   assert.equal(state.windowName, '');
   assert.ok(!state.html.includes(token) && !state.text.includes(token) && !state.url.includes(token) && !state.title.includes(token), 'the token is visible on the page');

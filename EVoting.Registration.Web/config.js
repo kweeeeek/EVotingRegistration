@@ -35,4 +35,11 @@ export default Object.freeze({
   autoPrint: true,
   /** After a QR is issued, empty the search box and put the cursor back in it for the next member. */
   clearAfterIssue: true,
+
+  /** Offline mode, for a venue with no signal: "Prepare for offline" stores the open election's member list on this PC, encrypted with
+   *  the user's password; that user can then sign in and issue QR slips without the server, and the issuances are sent when the desk
+   *  is online again. The page also keeps a copy of its own files (sw.js) so it opens without the server. false = online only. */
+  offlineMode: true,
+  /** How many days a preparation for offline (or an imported USB package) may be used before it must be done again online. */
+  offlineValidDays: 3,
 });

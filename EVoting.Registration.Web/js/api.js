@@ -14,6 +14,9 @@ export const LOGIN_PATH = 'api/v1/auth/registration-login';
 export const CURRENT_EVENT_PATH = 'api/v1/events/current';
 export const SEARCH_PATH = 'api/v1/registration/members/search';
 export const HEALTH_PATH = 'api/v1/health/live';
+/** Offline preparation and catch-up (see js/offline/). */
+export const ROSTER_PATH = 'api/v1/registration/members/roster';
+export const QR_ISSUED_BULK_PATH = 'api/v1/registration/members/qr-issued-bulk';
 export const qrIssuedPath = (memberId) => `api/v1/registration/members/${encodeURIComponent(String(memberId))}/qr-issued`;
 
 /** '' means "the same site as this page" (a reverse proxy forwards /api/ to the server). */
@@ -271,7 +274,7 @@ export function createApi({ base, sameOrigin, getToken, fetchFn, timeoutMs = 150
       }
       const event = normalizeEvent(r.data);
       if (!event) return { ok: false, failure: new ApiFailure(FailureKind.Protocol, 'The current-election answer was not usable.') };
-      return { ok: true, event };
+      return { ok: true, event, raw: r.data };
     },
 
     /** GET registration/members/search. { ok, members } - eligible AND ineligible members; at most 200 rows. */
@@ -295,6 +298,30 @@ export function createApi({ base, sameOrigin, getToken, fetchFn, timeoutMs = 150
         return { ok: false, failure: new ApiFailure(FailureKind.Protocol, 'The server confirmed a different member than the one asked for.') };
       }
       return { ok: true, memberId, qrIssuedAt: typeof d.qrIssuedAt === 'string' && d.qrIssuedAt.trim() ? d.qrIssuedAt : null };
+    },
+
+    /**
+     * GET registration/members/roster: EVERY active member of the branches (no text, no 200 cap), for "Prepare for offline".
+     * { ok, members } with the members exactly as the server sent them (they are stored encrypted and normalised when used).
+     */
+    async getRoster(branchIds, { signal } = {}) {
+      if (!Array.isArray(branchIds) || branchIds.length === 0) return { ok: true, members: [] };
+      const params = branchIds.map((id) => ['branchIds', id]);
+      const r = await send('GET', ROSTER_PATH, { query: params, signal, timeoutMs: Math.max(timeoutMs, 120000) });
+      if (!r.ok) return r;
+      if (!Array.isArray(r.data)) return { ok: false, failure: new ApiFailure(FailureKind.Protocol, 'The member list was empty or malformed.') };
+      return { ok: true, members: r.data.filter((m) => normalizeMember(m) !== null) };
+    },
+
+    /** POST registration/members/qr-issued-bulk: QR issuances made offline, each with its own time. { ok, succeededMemberIds, failedMemberIds } */
+    async markQrIssuedBulk(items, { signal } = {}) {
+      const r = await send('POST', QR_ISSUED_BULK_PATH, { body: { items }, signal, timeoutMs: Math.max(timeoutMs, 60000) });
+      if (!r.ok) return r;
+      const d = r.data;
+      if (!d || !Array.isArray(d.succeededMemberIds) || !Array.isArray(d.failedMemberIds)) {
+        return { ok: false, failure: new ApiFailure(FailureKind.Protocol, 'The server answer to the offline catch-up could not be understood.') };
+      }
+      return { ok: true, succeededMemberIds: d.succeededMemberIds.map(asInt), failedMemberIds: d.failedMemberIds.map(asInt) };
     },
 
     /** GET health/live (anonymous). { ok } when the API process answers. */

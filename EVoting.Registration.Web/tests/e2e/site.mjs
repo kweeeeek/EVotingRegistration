@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { applyApiUrl } from '../../tools/set-api-url.mjs';
 
 const WEB_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
-const COPY = ['index.html', 'favicon.svg', 'config.js', '_headers', 'css', 'js', 'vendor'];
+const COPY = ['index.html', 'favicon.svg', 'config.js', 'sw.js', '_headers', 'css', 'js', 'vendor'];
 
 // Like a stock nginx or IIS: nothing is served as JavaScript unless it ends in .js (so a ".mjs" file would make a test fail, as it would on a real host).
 const TYPES = {

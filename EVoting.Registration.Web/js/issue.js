@@ -61,13 +61,16 @@ export function createIssuer({ api, records, getEvent, now = () => Date.now(), i
     const r = await api.markQrIssued(record.memberId, { timeoutMs: issueTimeoutMs });
 
     if (r.ok) {
+      // r.offline: the desk works offline (js/offline/local-api.js) - saved on this PC, the server gets it later
+      const offline = r.offline === true;
       const updated = records.update(record.id, {
         state: RecordState.Confirmed,
         issuedAtUtc: r.qrIssuedAt ?? new Date(now()).toISOString(),
-        message: '',
+        message: offline ? 'Issued offline: saved on this PC. The server gets it when the desk is online and signed in again.' : '',
         failureKind: null,
+        offline,
       });
-      return { issued: true, refusal: IssueRefusal.None, message: 'QR issued. Confirmed by the server.', record: updated, mayPrint: true, duplicate: false };
+      return { issued: true, refusal: IssueRefusal.None, message: offline ? 'QR issued offline. Saved on this PC.' : 'QR issued. Confirmed by the server.', record: updated, mayPrint: true, duplicate: false, offline };
     }
 
     const f = r.failure;

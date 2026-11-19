@@ -4,9 +4,9 @@ The Registration desk as a web page. Staff sign in with a **user name and passwo
 out of the receipt printer. The page talks to the eVoting API (`https://api.eballotsacdeco.site`) and to nothing else. Its colour is forest green
 (the CSS colour `forestgreen`, `#228B22`) and its letters are Segoe UI.
 
-**Online-only.** When the server cannot be reached the desk says so and refuses to issue: a QR is never issued, and a slip is never printed, unless the
-server has recorded it. (The Windows program `EVoting.Registration` keeps its offline outbox for places with an unreliable network; the two can be used side by
-side, and a QR issued by either is the same QR to the kiosk.)
+**Online, with an offline mode for a venue with no signal.** Online, a QR is never issued and a slip never printed unless the server has recorded it.
+At a venue with no signal the desk can work **offline** - only for a user who prepared this PC beforehand (see *Offline mode* below): it searches the member list
+stored on the PC, prints slips marked *ISSUED OFFLINE*, and sends the issuances to the server, with the time they were made, once it is online again.
 
 **Not in this version:** ID scanning (camera and text recognition), the saved roster and the outbox. **Kept:** *Review records*, the list of what was issued in
 the session and what needs attention.
@@ -74,7 +74,7 @@ node tools/set-api-url.mjs https://api.eballotsacdeco.site     # or: the API is 
 node tools/check-bundle.mjs                                    # says "OK - the folder is ready to upload", or what is wrong
 ```
 
-Then upload **exactly** `index.html`, `config.js`, `_headers`, `favicon.svg`, `css/`, `js/` and `vendor/`. Do **not** upload `tests/`, `tools/`, `docs/`,
+Then upload **exactly** `index.html`, `config.js`, `_headers`, `favicon.svg`, `sw.js`, `css/`, `js/` and `vendor/`. Do **not** upload `tests/`, `tools/`, `docs/`,
 `node_modules/` or `package*.json`. Then look at the host from outside:
 
 ```bash
@@ -135,6 +135,25 @@ way. Rows TW-30 to TW-35 check both on the real printer and a real kiosk.
   request (`.../members/search?query=...`) - the server's access log may therefore contain what was searched.
 * Text that comes from the server (names, remarks, addresses) is only ever put on the page as text. The policy forbids inline script and style, other servers, forms, frames and
   string-to-markup conversion (Trusted Types); the page cannot be shown inside another site.
+
+## Offline mode (venue with no signal)
+
+1. **Before going** (online, on each desk PC, with the user who will work there): sign in and press **Prepare for offline** in the strip under the top bar. The page
+   downloads the open election and EVERY member of its branches and stores them on this PC **encrypted with that user's password** (PBKDF2-SHA256 + AES-256-GCM,
+   the browser's own WebCrypto). Valid for **3 days** (`offlineValidDays` in `config.js`).
+   * The election is not open yet? Make a **Registration package** in the Admin app (Results > Kiosk USB Package > *Make Registration package*), copy the `.evreg`
+     file to the desk, sign in and use **Import USB package…** with the passphrase the Admin app showed (it is shown once and never stored - pass it on separately).
+2. **At the venue:** sign in as usual. When the server cannot be reached, the same user name and password open the data stored on this PC: the strip says **OFFLINE MODE**,
+   search and *Issue QR* work from that list, the election is open while the PC's clock is inside its schedule, and the slip says **ISSUED OFFLINE**.
+   Another user, an expired preparation or a wrong password is refused.
+3. **Back online:** press **Lock** and type the password (or sign in again). The desk is online again and sends what it issued offline in one call
+   (`POST registration/members/qr-issued-bulk`, each with its own time). Until then the strip says how many issuances wait; they are never thrown away.
+
+What changes on the PC: the page keeps a copy of its **own files** (`sw.js`, a service worker) so it opens without the web server - never an answer of the API.
+Only a user who prepares the PC leaves data in the browser (IndexedDB `evoting-registration-offline`): the encrypted member list, and the outbox of member ids and
+times. `tools/lint.mjs` allows these browser features in exactly one file each (`js/offline/idb.js`, `js/offline/sw-register.js`, `sw.js`); the policy allows one
+Trusted Types policy (`evoting-sw`), which accepts nothing but `./sw.js`. Offline, two desks do not know about each other: a member could get two slips, but the
+kiosks and the server count one vote per member. `offlineMode: false` in `config.js` turns all of this off.
 
 ## Tests
 

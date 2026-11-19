@@ -109,7 +109,7 @@ export function createLoginView({ onSignIn }) {
         (serverEl = h('span', { class: 'login-server-state' }, 'checking…')),
       ),
       // what to do instead is said only when it is needed: while the server does not answer
-      (noteEl = h('p', { class: 'login-note', hidden: true }, 'This browser version needs the internet. When it is down, use the Windows Registration station.')),
+      (noteEl = h('p', { class: 'login-note', hidden: true }, 'The server cannot be reached. A user who pressed "Prepare for offline" on this PC in the last days can still sign in here, with the same password, and work offline. Otherwise use the Windows Registration station.')),
     ),
   );
 

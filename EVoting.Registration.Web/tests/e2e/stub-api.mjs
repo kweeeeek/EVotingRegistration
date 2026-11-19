@@ -250,6 +250,35 @@ export function createStub({ key, cert, allowedOrigins = null, host = '127.0.0.1
       return;
     }
 
+    // offline mode: every active member of the branches (RegistrationController.GetMembersRoster), and the catch-up after offline work
+    if (req.method === 'GET' && path === '/api/v1/registration/members/roster') {
+      const branches = url.searchParams.getAll('branchIds').map(Number);
+      answer(200, state.members.filter((m) => m.isActive && branches.includes(m.branchId)).sort((a, b) => strip(a.memberName).localeCompare(strip(b.memberName))));
+      return;
+    }
+    if (req.method === 'POST' && path === '/api/v1/registration/members/qr-issued-bulk') {
+      let body;
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        send(res, req, 400, { error: 'Malformed request body.' });
+        return;
+      }
+      const succeededMemberIds = [];
+      const failedMemberIds = [];
+      for (const item of body.items ?? []) {
+        const m = state.members.find((x) => x.memberId === Number(item.memberId));
+        if (!m) failedMemberIds.push(Number(item.memberId));
+        else {
+          m.qrIssuedAt = String(item.issuedAtUtc).replace('Z', '');
+          succeededMemberIds.push(m.memberId);
+        }
+      }
+      entry.bulk = body.items ?? [];
+      answer(200, { succeededMemberIds, failedMemberIds });
+      return;
+    }
+
     const issued = /^\/api\/v1\/registration\/members\/(\d+)\/qr-issued$/.exec(path);
     if (req.method === 'POST' && issued) {
       const m = state.members.find((x) => x.memberId === Number(issued[1]));
