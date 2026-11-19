@@ -206,6 +206,7 @@ test('focus: a button reached with the keyboard gets the ring, a mouse click doe
   await page.locator('#login-user').waitFor();
   await page.locator('#login-password').click();
   await page.keyboard.press('Tab'); // Show
+  await page.keyboard.press('Tab'); // Registration desk
   await page.keyboard.press('Tab'); // Sign in
   assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Sign in');
   const ring = await paint(page.getByRole('button', { name: 'Sign in' }), 'outline-width', 'outline-style', 'outline-color', 'outline-offset');

@@ -30,12 +30,14 @@ export function describeConnection(c) {
   return { kind: 'connecting', text: 'Connecting…', detail: '' };
 }
 
-export function createTopbar({ onRefresh, onLock, onSignOut }) {
+export function createTopbar({ onRefresh, onLock, onSignOut, onDeskList = () => {} }) {
   let titleEl;
   let detailEl;
   let pillEl;
   let pillText;
   let userEl;
+  let deskEl;
+  let deskBtn;
 
   titleEl = h('p', { class: 'election-title' }, 'No election is open');
   detailEl = h('p', { class: 'election-detail' });
@@ -53,10 +55,11 @@ export function createTopbar({ onRefresh, onLock, onSignOut }) {
       'div',
       { class: 'topbar-tools' },
       (pillEl = h('p', { class: 'pill', role: 'status', 'data-kind': 'connecting' }, h('span', { class: 'pill-dot', 'aria-hidden': 'true' }), (pillText = h('span', null, 'Connecting…')))),
-      h('p', { class: 'topbar-user' }, 'Signed in as ', (userEl = h('strong', null, ''))),
+      h('p', { class: 'topbar-user' }, 'Signed in as ', (userEl = h('strong', null, '')), (deskEl = h('span', { class: 'topbar-desk' }, ''))),
       h(
         'div',
         { class: 'topbar-buttons' },
+        (deskBtn = h('button', { type: 'button', class: 'btn btn-small', title: 'Who received a QR at this desk in this election', onclick: () => onDeskList() }, 'Issued at this desk')),
         h('button', { type: 'button', class: 'btn btn-quiet btn-small', title: 'Look at the election again (F5)', onclick: () => onRefresh() }, 'Refresh'),
         h('button', { type: 'button', class: 'btn btn-quiet btn-small', title: 'Hide the member list until you sign in again', onclick: () => onLock() }, 'Lock'),
         h('button', { type: 'button', class: 'btn btn-quiet btn-small', onclick: () => onSignOut() }, 'Sign out'),
@@ -66,7 +69,7 @@ export function createTopbar({ onRefresh, onLock, onSignOut }) {
 
   return {
     el,
-    update({ event, eventStatus, connectivity, displayName }) {
+    update({ event, eventStatus, connectivity, displayName, deskNo = null }) {
       setText(titleEl, event ? event.title : eventStatus === 'none' ? 'No election is open' : eventStatus === 'error' ? 'Election unknown' : 'Looking for the open election…');
       const parts = describeElection(event);
       setChildren(
@@ -78,6 +81,8 @@ export function createTopbar({ onRefresh, onLock, onSignOut }) {
       pillEl.title = c.detail;
       setText(pillText, c.text);
       setText(userEl, displayName);
+      setText(deskEl, deskNo ? ` · Desk ${deskNo}` : '');
+      deskBtn.hidden = !deskNo;
     },
   };
 }

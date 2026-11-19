@@ -104,14 +104,16 @@ describe('the offline desk: prepare online, sign in offline with the same passwo
     assert.equal((await desk.unlock('desk1', 'old-pw')).ok, false);
   });
 
-  test('the outbox keeps ids and times only, per user, oldest first, until the server has them', async () => {
+  test('the outbox keeps ids, desk and times only, per user, oldest first, until the server has them', async () => {
     const { c, desk } = newDesk();
-    await desk.queue({ id: 'a', username: 'Desk1', memberId: 1, eventId: 77, issuedAtUtc: '2026-12-03T01:00:00.000Z' });
+    await desk.queue({ id: 'a', username: 'Desk1', memberId: 1, eventId: 77, deskNo: 4, issuedAtUtc: '2026-12-03T01:00:00.000Z' });
     c.advance(1000);
     await desk.queue({ id: 'b', username: 'desk2', memberId: 2, eventId: 77, issuedAtUtc: '2026-12-03T01:00:01.000Z' });
     assert.deepEqual((await desk.pending()).map((x) => x.id), ['a', 'b']);
     assert.deepEqual((await desk.pending('DESK1')).map((x) => x.id), ['a']);
-    assert.deepEqual(Object.keys((await desk.pending())[0]).sort(), ['eventId', 'id', 'issuedAtUtc', 'memberId', 'queuedAt', 'user']);
+    assert.deepEqual(Object.keys((await desk.pending())[0]).sort(), ['deskNo', 'eventId', 'id', 'issuedAtUtc', 'memberId', 'queuedAt', 'user']);
+    assert.equal((await desk.pending())[0].deskNo, 4);
+    assert.equal((await desk.pending())[1].deskNo, null, 'no desk given: null');
     await desk.markSent(['a']);
     assert.deepEqual((await desk.pending()).map((x) => x.id), ['b']);
     await desk.forget('desk2');
@@ -179,7 +181,7 @@ describe('working offline: the same answers as the server, from the prepared lis
 
   test('issuing queues the issuance with the PC time, marks the member as issued, and is sent later in one call', async () => {
     const desk = newDesk().desk;
-    const api = createOfflineApi({ event, members, desk, username: 'desk1', now: at('2026-12-03T10:00:00'), newId: (() => { let i = 0; return () => `r${++i}`; })() });
+    const api = createOfflineApi({ event, members, desk, username: 'desk1', getDeskNo: () => 6, now: at('2026-12-03T10:00:00'), newId: (() => { let i = 0; return () => `r${++i}`; })() });
     const r = await api.markQrIssued(1);
     assert.equal(r.ok, true);
     assert.equal(r.offline, true);
@@ -191,7 +193,12 @@ describe('working offline: the same answers as the server, from the prepared lis
     const calls = [];
     const server = { markQrIssuedBulk: async (items) => (calls.push(items), { ok: true, succeededMemberIds: [1], failedMemberIds: [2] }) };
     const sent = await flushOutbox({ desk, api: server });
-    assert.deepEqual(calls[0], [{ memberId: 1, issuedAtUtc: r.qrIssuedAt }, { memberId: 2, issuedAtUtc: new Date('2026-12-03T10:00:00').toISOString() }]);
+    // each slip goes with its election, the desk chosen at sign-in and the user who issued it
+    assert.deepEqual(calls[0], [
+      { memberId: 1, issuedAtUtc: r.qrIssuedAt, eventId: 77, deskNo: 6, issuedBy: 'desk1' },
+      { memberId: 2, issuedAtUtc: new Date('2026-12-03T10:00:00').toISOString(), eventId: 77, deskNo: 6, issuedBy: 'desk1' },
+    ]);
+    assert.equal(api.memberById(1).memberName, members[0].memberName ?? api.memberById(1).memberName);
     assert.equal(sent.sent, 1);
     assert.deepEqual(sent.unknown, [2]);
     assert.equal((await desk.pending()).length, 0, 'answered either way: nothing left to send');

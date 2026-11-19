@@ -22,8 +22,10 @@ test('login: right user name and password open the desk; nothing stays in the fo
 test('login: Enter in the password box signs in', async ({ page }) => {
   await page.locator('#login-user').fill(USER);
   await page.locator('#login-password').fill(PASSWORD);
+  await page.locator('#login-desk').selectOption('7');
   await page.locator('#login-password').press('Enter');
   await page.locator('#search-input').waitFor({ state: 'visible' });
+  assert.match(await page.locator('.topbar-user').textContent(), /Desk 7/);
 });
 
 test('login: wrong password says so, empties the password and keeps the user name', async (session) => {

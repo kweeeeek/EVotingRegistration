@@ -23,9 +23,12 @@ export async function eventually(fn, { timeout = 5000, interval = 40, message = 
   }
 }
 
-export async function signIn(page, user = USER, password = PASSWORD) {
+export const DESK = '3';
+
+export async function signIn(page, user = USER, password = PASSWORD, desk = DESK) {
   await page.locator('#login-user').fill(user);
   await page.locator('#login-password').fill(password);
+  if (desk) await page.locator('#login-desk').selectOption(desk);
   await page.getByRole('button', { name: 'Sign in' }).click();
 }
 

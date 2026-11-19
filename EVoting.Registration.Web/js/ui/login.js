@@ -1,18 +1,21 @@
-// The sign-in screen: user name + password (registration-login). Nothing about the person is remembered by the browser page.
+// The sign-in screen: user name + password (registration-login) and the desk number this person works at. Nothing about the
+// person is remembered by the browser page.
 
 import { Reachability } from '../connectivity.js';
 import { h, setHidden, setText } from './dom.js';
 
 /**
  * @param {object} options
- * @param {(username: string, password: string) => Promise<{ok: boolean, message?: string, cooldownSeconds?: number}>} options.onSignIn
+ * @param {(username: string, password: string, deskNo: number) => Promise<{ok: boolean, message?: string, cooldownSeconds?: number}>} options.onSignIn
+ * @param {number} [options.deskCount] desks are numbered 1..deskCount
  *
  * The screen says whether the server answers and nothing more about it: the address of the server is not shown to whoever stands
  * in front of the desk.
  */
-export function createLoginView({ onSignIn }) {
+export function createLoginView({ onSignIn, deskCount = 30 }) {
   let userEl;
   let passEl;
+  let deskEl;
   let errorEl;
   let submitBtn;
   let toggleBtn;
@@ -29,7 +32,7 @@ export function createLoginView({ onSignIn }) {
       'div',
       { class: 'login-panel' },
       h('h1', { class: 'login-title' }, 'Registration desk'),
-      h('p', { class: 'login-lead' }, 'Sign in with your user name and password to register members and issue their voting QR.'),
+      h('p', { class: 'login-lead' }, 'Sign in with your user name and password, and choose the registration desk you work at.'),
       h(
         'form',
         {
@@ -40,11 +43,18 @@ export function createLoginView({ onSignIn }) {
             if (busy || Date.now() < cooldownUntil) return;
             const username = userEl.value;
             const password = passEl.value;
+            const deskNo = Number(deskEl.value);
+            // empty user name or password: the sign-in itself asks for both; then the desk
+            if (username.trim() && password && (!Number.isInteger(deskNo) || deskNo < 1)) {
+              setText(errorEl, 'Choose your registration desk.');
+              deskEl.focus();
+              return;
+            }
             setBusy(true);
             setText(errorEl, '');
             let result;
             try {
-              result = await onSignIn(username, password);
+              result = await onSignIn(username, password, deskNo);
             } finally {
               setBusy(false);
             }
@@ -98,6 +108,17 @@ export function createLoginView({ onSignIn }) {
               'Show',
             )),
           ),
+        ),
+        h(
+          'div',
+          { class: 'field' },
+          h('label', { for: 'login-desk' }, 'Registration desk'),
+          (deskEl = h(
+            'select',
+            { id: 'login-desk', name: 'desk', required: true },
+            h('option', { value: '' }, 'Choose your desk…'),
+            ...Array.from({ length: deskCount }, (_, i) => h('option', { value: String(i + 1) }, `Desk ${i + 1}`)),
+          )),
         ),
         (errorEl = h('p', { class: 'form-error', role: 'alert' })),
         (submitBtn = h('button', { type: 'submit', class: 'btn btn-primary btn-wide' }, 'Sign in')),

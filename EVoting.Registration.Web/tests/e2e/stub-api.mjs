@@ -76,7 +76,20 @@ export function createStub({ key, cert, allowedOrigins = null, host = '127.0.0.1
     log: [],
     logins: 0,
     down: false, // true: every connection is dropped at once
+    issuances: [], // QR slips per election and desk (QrIssuances): { eventId, memberId, deskNo, issuedAtUtc, issuedBy, offline }
   };
+
+  // a member who already has a QR when the test starts got it in THIS election (members 2: "already issued" questions)
+  for (const m of state.members) {
+    if (m.qrIssuedAt && state.event) state.issuances.push({ eventId: state.event.eventId, memberId: m.memberId, deskNo: null, issuedAtUtc: `${m.qrIssuedAt}Z`, issuedBy: 'earlier', offline: false });
+  }
+
+  /** The member as the server sends it; with an election, qrIssuedAt is the QR of THAT election (RegistrationController.MapMember). */
+  function memberFor(m, eventId) {
+    if (!eventId) return m;
+    const mine = state.issuances.filter((i) => i.eventId === eventId && i.memberId === m.memberId).map((i) => i.issuedAtUtc).sort();
+    return { ...m, qrIssuedAt: mine.length ? mine[mine.length - 1] : null };
+  }
 
   const original = new Map(state.members.map((m) => [m.memberId, { ...m }]));
 
@@ -246,14 +259,15 @@ export function createStub({ key, cert, allowedOrigins = null, host = '127.0.0.1
         .filter((m) => branches.includes(m.branchId) && (strip(m.memberName).includes(q) || strip(m.accountCode).includes(q)))
         .sort((a, b) => strip(a.memberName).localeCompare(strip(b.memberName)))
         .slice(0, 200);
-      answer(200, hits);
+      answer(200, hits.map((m) => memberFor(m, Number(url.searchParams.get('eventId')) || 0)));
       return;
     }
 
     // offline mode: every active member of the branches (RegistrationController.GetMembersRoster), and the catch-up after offline work
     if (req.method === 'GET' && path === '/api/v1/registration/members/roster') {
       const branches = url.searchParams.getAll('branchIds').map(Number);
-      answer(200, state.members.filter((m) => m.isActive && branches.includes(m.branchId)).sort((a, b) => strip(a.memberName).localeCompare(strip(b.memberName))));
+      const ev = Number(url.searchParams.get('eventId')) || 0;
+      answer(200, state.members.filter((m) => m.isActive && branches.includes(m.branchId)).sort((a, b) => strip(a.memberName).localeCompare(strip(b.memberName))).map((m) => memberFor(m, ev)));
       return;
     }
     if (req.method === 'POST' && path === '/api/v1/registration/members/qr-issued-bulk') {
@@ -271,6 +285,9 @@ export function createStub({ key, cert, allowedOrigins = null, host = '127.0.0.1
         if (!m) failedMemberIds.push(Number(item.memberId));
         else {
           m.qrIssuedAt = String(item.issuedAtUtc).replace('Z', '');
+          const evId = Number(item.eventId) || (state.event ? state.event.eventId : 0);
+          const dup = state.issuances.some((i) => i.eventId === evId && i.memberId === m.memberId && i.issuedAtUtc === String(item.issuedAtUtc));
+          if (evId && !dup) state.issuances.push({ eventId: evId, memberId: m.memberId, deskNo: Number(item.deskNo) || null, issuedAtUtc: String(item.issuedAtUtc), issuedBy: item.issuedBy || 'clerk', offline: true });
           succeededMemberIds.push(m.memberId);
         }
       }
@@ -286,9 +303,44 @@ export function createStub({ key, cert, allowedOrigins = null, host = '127.0.0.1
         answer(404, { error: 'Member not found.' });
         return;
       }
-      m.qrIssuedAt = new Date().toISOString().replace('Z', '');
+      let body = {};
+      try {
+        body = raw && raw.trim() ? JSON.parse(raw) : {};
+      } catch {
+        send(res, req, 400, { error: 'Malformed request body.' });
+        return;
+      }
+      if (!state.event) {
+        answer(409, { error: 'No election event is currently open.', code: 'NO_OPEN_EVENT' });
+        return;
+      }
+      if (body.eventId != null && Number(body.eventId) !== state.event.eventId) {
+        answer(409, { error: 'The open election has changed. Reload the page before issuing.', code: 'EVENT_CHANGED' });
+        return;
+      }
+      const now = new Date().toISOString();
+      m.qrIssuedAt = now.replace('Z', '');
+      state.issuances.push({ eventId: state.event.eventId, memberId: m.memberId, deskNo: Number(body.deskNo) || null, issuedAtUtc: now, issuedBy: 'clerk', offline: false });
       entry.recorded = true;
-      answer(200, { message: 'QR issuance recorded.', memberId: m.memberId, qrIssuedAt: m.qrIssuedAt });
+      entry.body = body;
+      answer(200, { message: 'QR issuance recorded.', memberId: m.memberId, qrIssuedAt: now, eventId: state.event.eventId, deskNo: Number(body.deskNo) || null });
+      return;
+    }
+
+    // what one desk issued in one election (RegistrationController.DeskIssuances)
+    if (req.method === 'GET' && path === '/api/v1/registration/qr-issuances') {
+      const ev = Number(url.searchParams.get('eventId'));
+      const desk = Number(url.searchParams.get('deskNo'));
+      if (!(desk >= 1 && desk <= 30)) {
+        answer(400, { error: 'Desk must be a number from 1 to 30.', code: 'INVALID_DESK' });
+        return;
+      }
+      const rows = state.issuances.filter((i) => i.eventId === ev && i.deskNo === desk).sort((a, b) => (a.issuedAtUtc < b.issuedAtUtc ? 1 : -1));
+      const items = rows.map((i) => {
+        const m = state.members.find((x) => x.memberId === i.memberId);
+        return { memberId: i.memberId, accountCode: m.accountCode, memberName: m.memberName, branch: m.branch, issuedAtUtc: i.issuedAtUtc, issuedBy: i.issuedBy, offline: i.offline };
+      });
+      answer(200, { eventId: ev, deskNo: desk, total: rows.length, memberCount: new Set(rows.map((r) => r.memberId)).size, items });
       return;
     }
 

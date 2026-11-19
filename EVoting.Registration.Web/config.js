@@ -42,4 +42,6 @@ export default Object.freeze({
   offlineMode: true,
   /** How many days a preparation for offline (or an imported USB package) may be used before it must be done again online. */
   offlineValidDays: 3,
+  /** How many registration desks there are: at sign-in each person chooses one, 1..deskCount ("Desk 1", "Desk 2", ...). */
+  deskCount: 30,
 });

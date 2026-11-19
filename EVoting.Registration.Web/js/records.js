@@ -151,11 +151,13 @@ export function createRecords({ now = () => Date.now(), newId = defaultId } = {}
     sendingFor: (memberId) => copy(list.find((r) => r.memberId === memberId && r.state === RecordState.Sending)),
 
     /** The most recent confirmed issuance for the member, or null. */
-    latestConfirmedFor(memberId) {
+    /** The latest confirmed issuance of this session for the member (in that election, when one is given). */
+    latestConfirmedFor(memberId, eventId = null) {
       let best = null;
       let bestTime = -Infinity;
       for (const r of list) {
         if (r.memberId !== memberId || r.state !== RecordState.Confirmed) continue;
+        if (eventId != null && r.eventId !== eventId) continue;
         const t = (parseServerUtc(r.issuedAtUtc) ?? new Date(r.startedAt)).getTime();
         if (t > bestTime) {
           best = r;

@@ -8,7 +8,7 @@
 // This file and js/offline/sw-register.js are the only files of the page allowed to use these browser features (tools/lint.mjs).
 // When a file is added to the page, add it to PAGE_FILES (tests/unit/offline.test.mjs checks the list against the folder).
 
-const CACHE = 'evoting-registration-page-v1';
+const CACHE = 'evoting-registration-page-v2';
 
 const PAGE_FILES = [
   './',
@@ -36,6 +36,7 @@ const PAGE_FILES = [
   './js/offline/package.js',
   './js/offline/sw-register.js',
   './js/ui/detail-panel.js',
+  './js/ui/desk-list.js',
   './js/ui/dialogs.js',
   './js/ui/dom.js',
   './js/ui/login.js',
