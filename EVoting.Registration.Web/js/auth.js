@@ -21,6 +21,23 @@ export const LockReason = Object.freeze({
   Replaced: 'replaced',
 });
 
+/**
+ * What is wrong with a new password, or '' when it is acceptable. The same rule as the server (PasswordPolicy + not the old one,
+ * not containing the user name); the server checks again.
+ */
+export function newPasswordProblem(next, { current = '', username = '', confirm = null } = {}) {
+  const pw = String(next ?? '');
+  if (!pw) return 'Type the new password.';
+  if (pw.length < 8 || pw.length > 128 || !/[A-Z]/.test(pw) || !/[a-z]/.test(pw) || !/[0-9]/.test(pw) || !/[^A-Za-z0-9]/.test(pw)) {
+    return 'The new password must be 8 to 128 characters with an uppercase letter, a lowercase letter, a digit and a special character.';
+  }
+  if (current && pw === current) return 'Choose a password different from the one you were given.';
+  const name = String(username ?? '').trim().toLowerCase();
+  if (name && pw.toLowerCase().includes(name)) return 'The password must not contain your user name.';
+  if (confirm !== null && pw !== confirm) return 'The two new passwords are not the same.';
+  return '';
+}
+
 const IDLE_CHECK_MS = 15000;
 const EXPIRY_MARGIN_MS = 30000;
 /** An offline session has no token to expire; it is re-checked (password) at least this often. */
@@ -127,6 +144,13 @@ export function createAuth({ api, idleMs, now = () => Date.now(), timers, onChan
   async function authenticate(username, password) {
     const r = await api.login(username, password);
     if (!r.ok) return r;
+    // the administrator gave this password: the desk stays closed until the person chooses their own (changePassword)
+    if (r.mustChangePassword) return { ok: false, mustChangePassword: true, changeToken: r.changeToken, username };
+    return accept(username, r);
+  }
+
+  /** The server opened a Registration session: keep its token and open the desk. */
+  function accept(username, r) {
     token = r.accessToken;
     offlineVerify = null;
     state.offline = false;
@@ -140,6 +164,12 @@ export function createAuth({ api, idleMs, now = () => Date.now(), timers, onChan
     startWatch();
     emit();
     return { ok: true };
+  }
+
+  /** Unlocking cannot set a new password (the screen is locked): the administrator reset it meanwhile. */
+  function unlockAnswer(r) {
+    if (r.mustChangePassword) return { ok: false, message: 'The administrator reset your password. Sign out, then sign in again to choose a new one.' };
+    return r;
   }
 
   return {
@@ -157,15 +187,27 @@ export function createAuth({ api, idleMs, now = () => Date.now(), timers, onChan
       return authenticate(name, password);
     },
 
+    /**
+     * After signIn answered mustChangePassword: sets the person's own password with the short token, and opens the desk with the
+     * session the server starts. { ok } or { ok: false, failure | message }.
+     */
+    async setOwnCredential(username, currentPassword, newPassword, changeToken) {
+      const problem = newPasswordProblem(newPassword, { current: currentPassword, username });
+      if (problem) return { ok: false, message: problem };
+      const r = await api.changePassword(changeToken, currentPassword, newPassword);
+      if (!r.ok) return r;
+      return accept(String(username ?? '').trim(), r);
+    },
+
     /** Unlocks a locked session: the SAME user types the password again. */
     async unlock(password) {
       if (state.status !== AuthStatus.Locked) return { ok: false, message: 'The session is not locked.' };
       if (!password) return { ok: false, message: 'Enter the password.' };
-      if (!state.offline) return authenticate(state.username, password);
+      if (!state.offline) return unlockAnswer(await authenticate(state.username, password));
 
       // Signed in offline: when the server answers again, this becomes an ONLINE session (the desk can then send what it issued
       // offline). Only when the server still does not answer is the password checked against this PC's offline data.
-      const online = await authenticate(state.username, password);
+      const online = unlockAnswer(await authenticate(state.username, password));
       if (online.ok || !online.failure?.noResponseFromServer) return online;
       const check = offlineVerify;
       if (!check || !(await check(password))) return { ok: false, message: 'Wrong password.' };

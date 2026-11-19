@@ -12,7 +12,7 @@ import { h, setHidden, setText } from './dom.js';
  * The screen says whether the server answers and nothing more about it: the address of the server is not shown to whoever stands
  * in front of the desk.
  */
-export function createLoginView({ onSignIn, deskCount = 30 }) {
+export function createLoginView({ onSignIn, onChangePassword = async () => ({ ok: false }), onCancelChange = () => {}, deskCount = 30 }) {
   let userEl;
   let passEl;
   let deskEl;
@@ -22,6 +22,13 @@ export function createLoginView({ onSignIn, deskCount = 30 }) {
   let serverEl;
   let noteEl;
   let busy = false;
+  let formEl;
+  let changeEl;
+  let changeLeadEl;
+  let newEl;
+  let confirmEl;
+  let changeErrorEl;
+  let changeBtn;
   let cooldownTimer = null;
   let cooldownUntil = 0;
 
@@ -33,7 +40,7 @@ export function createLoginView({ onSignIn, deskCount = 30 }) {
       { class: 'login-panel' },
       h('h1', { class: 'login-title' }, 'Registration desk'),
       h('p', { class: 'login-lead' }, 'Sign in with your user name and password, and choose the registration desk you work at.'),
-      h(
+      (formEl = h(
         'form',
         {
           class: 'login-form',
@@ -63,6 +70,11 @@ export function createLoginView({ onSignIn, deskCount = 30 }) {
               passEl.value = '';
               userEl.value = '';
               showPassword(false);
+            } else if (result && result.changePassword) {
+              // the administrator gave this password: choose your own before the desk opens
+              passEl.value = '';
+              showPassword(false);
+              showChange(result.username || username.trim());
             } else if (result) {
               setText(errorEl, result.message || 'Could not sign in.');
               passEl.value = '';
@@ -122,7 +134,78 @@ export function createLoginView({ onSignIn, deskCount = 30 }) {
         ),
         (errorEl = h('p', { class: 'form-error', role: 'alert' })),
         (submitBtn = h('button', { type: 'submit', class: 'btn btn-primary btn-wide' }, 'Sign in')),
-      ),
+      )),
+      (changeEl = h(
+        'form',
+        {
+          class: 'login-change',
+          novalidate: true,
+          hidden: true,
+          onsubmit: async (e) => {
+            e.preventDefault();
+            if (busy) return;
+            busy = true;
+            changeBtn.disabled = true;
+            setText(changeBtn, 'Saving…');
+            setText(changeErrorEl, '');
+            let result;
+            try {
+              result = await onChangePassword(newEl.value, confirmEl.value);
+            } finally {
+              busy = false;
+              changeBtn.disabled = false;
+              setText(changeBtn, 'Save the new password and open the desk');
+            }
+            if (result && result.ok) {
+              newEl.value = '';
+              confirmEl.value = '';
+              hideChange();
+              userEl.value = '';
+            } else if (result && result.backToSignIn) {
+              newEl.value = '';
+              confirmEl.value = '';
+              hideChange();
+              setText(errorEl, result.message || 'Sign in again.');
+              passEl.focus();
+            } else if (result) {
+              setText(changeErrorEl, result.message || 'The password could not be changed.');
+              newEl.focus();
+            }
+          },
+        },
+        h('h2', { class: 'login-change-title' }, 'Choose your own password'),
+        (changeLeadEl = h('p', { class: 'login-lead' }, '')),
+        h(
+          'div',
+          { class: 'field' },
+          h('label', { for: 'login-new-password' }, 'New password'),
+          (newEl = h('input', { id: 'login-new-password', name: 'new-password', type: 'password', autocomplete: 'new-password', required: true })),
+        ),
+        h(
+          'div',
+          { class: 'field' },
+          h('label', { for: 'login-confirm-password' }, 'New password again'),
+          (confirmEl = h('input', { id: 'login-confirm-password', name: 'confirm-password', type: 'password', autocomplete: 'new-password', required: true })),
+        ),
+        h('p', { class: 'change-note' }, 'At least 8 characters, with an uppercase letter, a lowercase letter, a digit and a special character (for example ! @ # -). Not your user name.'),
+        (changeErrorEl = h('p', { class: 'change-error', role: 'alert' })),
+        (changeBtn = h('button', { type: 'submit', class: 'btn btn-primary btn-wide' }, 'Save the new password and open the desk')),
+        h(
+          'button',
+          {
+            type: 'button',
+            class: 'btn btn-quiet btn-wide',
+            onclick: () => {
+              newEl.value = '';
+              confirmEl.value = '';
+              hideChange();
+              onCancelChange();
+              passEl.focus();
+            },
+          },
+          'Back to sign-in',
+        ),
+      )),
       h(
         'p',
         { class: 'login-server', role: 'status' },
@@ -133,6 +216,20 @@ export function createLoginView({ onSignIn, deskCount = 30 }) {
       (noteEl = h('p', { class: 'login-note', hidden: true }, 'The server cannot be reached. A user who pressed "Prepare for offline" on this PC in the last days can still sign in here, with the same password, and work offline. Otherwise use the Windows Registration station.')),
     ),
   );
+
+  function showChange(username) {
+    setText(changeLeadEl, `${username}: the password you used was given by the administrator. Choose your own password now; the desk opens after it is saved.`);
+    setText(changeErrorEl, '');
+    setText(errorEl, '');
+    formEl.hidden = true;
+    changeEl.hidden = false;
+    newEl.focus();
+  }
+
+  function hideChange() {
+    changeEl.hidden = true;
+    formEl.hidden = false;
+  }
 
   function showPassword(show) {
     passEl.type = show ? 'text' : 'password';
@@ -182,6 +279,9 @@ export function createLoginView({ onSignIn, deskCount = 30 }) {
     clear() {
       userEl.value = '';
       passEl.value = '';
+      newEl.value = '';
+      confirmEl.value = '';
+      hideChange();
       setText(errorEl, '');
     },
   };
