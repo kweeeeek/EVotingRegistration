@@ -334,7 +334,8 @@ input[type='password']:focus-visible {
   min-width: 4.25rem;
   min-height: 2rem;
 }
-.form-error {
+.form-error,
+.change-error {
   min-height: 1.25rem;
   color: var(--bad);
   font-size: var(--text-sm);
@@ -366,7 +367,8 @@ input[type='password']:focus-visible {
   margin-bottom: 1.5rem;
   color: var(--ink-soft);
 }
-.login-form {
+.login-form,
+.login-change {
   display: grid;
   gap: 1rem;
 }
@@ -403,7 +405,8 @@ input[type='password']:focus-visible {
 .login-server-state[data-state='offline']::before {
   background: var(--bad);
 }
-.login-note {
+.login-note,
+.change-note {
   margin-top: 0.75rem;
   color: var(--ink-soft);
   font-size: var(--text-sm);
@@ -1480,4 +1483,10 @@ input[type='password']:focus-visible {
   width: 100%;
   min-height: 2.75rem;
   font: inherit;
+}
+
+/* "Choose your own password" after a sign-in with a password the administrator gave */
+.login-change-title {
+  margin: 0 0 0.25rem;
+  font-size: var(--text-lg);
 }

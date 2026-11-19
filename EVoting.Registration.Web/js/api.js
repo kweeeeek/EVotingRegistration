@@ -11,6 +11,7 @@ import { ApiFailure, FailureKind, classifyException, classifyStatus, isApiErrorE
 import { parseLocalWallClock } from './format.js';
 
 export const LOGIN_PATH = 'api/v1/auth/registration-login';
+export const CHANGE_PASSWORD_PATH = 'api/v1/auth/registration-change-password';
 export const CURRENT_EVENT_PATH = 'api/v1/events/current';
 export const SEARCH_PATH = 'api/v1/registration/members/search';
 export const HEALTH_PATH = 'api/v1/health/live';
@@ -162,7 +163,7 @@ export function createApi({ base, sameOrigin, getToken, fetchFn, timeoutMs = 150
   /**
    * @returns {Promise<{ok: true, status: number, data: any, text: string} | {ok: false, failure: ApiFailure, status?: number, text?: string}>}
    */
-  async function send(method, path, { query, body, auth = true, signal, timeoutMs: perCallTimeout } = {}) {
+  async function send(method, path, { query, body, auth = true, bearer = null, signal, timeoutMs: perCallTimeout } = {}) {
     let url;
     try {
       url = buildUrl(base, path, query);
@@ -177,6 +178,8 @@ export function createApi({ base, sameOrigin, getToken, fetchFn, timeoutMs = 150
         return finish({ ok: false, failure: new ApiFailure(FailureKind.Unauthorized, 'You are not signed in.') }, { local: true, unauthorized: true });
       }
       headers.Authorization = `Bearer ${token}`;
+    } else if (bearer) {
+      headers.Authorization = `Bearer ${bearer}`; // a token that is not the session's (the short password-change token)
     }
     if (body !== undefined) headers['Content-Type'] = 'application/json';
 
@@ -245,21 +248,39 @@ export function createApi({ base, sameOrigin, getToken, fetchFn, timeoutMs = 150
     return result;
   }
 
+  /** Reads the token answer of registration-login / registration-change-password. */
+  function readTokenAnswer(d) {
+    const token = d && typeof d.accessToken === 'string' ? d.accessToken : '';
+    const expiresIn = d ? asInt(d.expiresIn) : 0;
+    if (!token || expiresIn <= 0) {
+      return { ok: false, failure: new ApiFailure(FailureKind.Protocol, 'The sign-in answer was incomplete.') };
+    }
+    if (d.mustChangePassword === true) return { ok: true, mustChangePassword: true, changeToken: token, expiresInSeconds: expiresIn };
+    return { ok: true, accessToken: token, expiresInSeconds: expiresIn, role: asString(d.role) };
+  }
+
   return {
     base,
     sameOrigin,
 
-    /** POST registration-login. On success: { ok, accessToken, expiresInSeconds, role }. */
+    /**
+     * POST registration-login. On success: { ok, accessToken, expiresInSeconds, role }. When the administrator gave the password
+     * (new account, reset) the answer is { ok, mustChangePassword: true, changeToken, expiresInSeconds }: the desk does NOT open; the
+     * short token can only be used with changePassword.
+     */
     async login(username, password, { signal } = {}) {
       const r = await send('POST', LOGIN_PATH, { auth: false, body: { username, password }, signal });
       if (!r.ok) return r;
-      const d = r.data;
-      const token = d && typeof d.accessToken === 'string' ? d.accessToken : '';
-      const expiresIn = d ? asInt(d.expiresIn) : 0;
-      if (!token || expiresIn <= 0) {
-        return { ok: false, failure: new ApiFailure(FailureKind.Protocol, 'The sign-in answer was incomplete.') };
-      }
-      return { ok: true, accessToken: token, expiresInSeconds: expiresIn, role: asString(d.role) };
+      return readTokenAnswer(r.data);
+    },
+
+    /** POST registration-change-password with the short token from login. Same answer as a normal login when it worked. */
+    async changePassword(changeToken, currentPassword, newPassword, { signal } = {}) {
+      const r = await send('POST', CHANGE_PASSWORD_PATH, { auth: false, bearer: changeToken, body: { currentPassword, newPassword }, signal });
+      if (!r.ok) return r;
+      const t = readTokenAnswer(r.data);
+      if (t.ok && t.mustChangePassword) return { ok: false, failure: new ApiFailure(FailureKind.Protocol, 'The server still asks for a new password.') };
+      return t;
     },
 
     /** GET events/current. { ok, event } where event is null when no election is open. */

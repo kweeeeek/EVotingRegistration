@@ -10,7 +10,7 @@ import defaultConfig from '../config.js';
 import { FailureKind } from './errors.js';
 import { createApi, normalizeBase, validateApiBaseUrl } from './api.js';
 import { createConnectivity, Reachability } from './connectivity.js';
-import { AuthStatus, createAuth } from './auth.js';
+import { AuthStatus, createAuth, newPasswordProblem } from './auth.js';
 import { createSearchCoordinator } from './search.js';
 import { createRecords, RecordState } from './records.js';
 import { IssueRefusal, createIssuer } from './issue.js';
@@ -112,7 +112,7 @@ export function start({ config: override, root = document.getElementById('app'),
     isVisible: () => document.visibilityState === 'visible',
   });
   const auth = createAuth({
-    api: { login: (u, p) => api.login(u, p) },
+    api: { login: (u, p) => api.login(u, p), changePassword: (t, c, n) => liveApi.changePassword(t, c, n) },
     idleMs: cfg.idleLockMinutes * 60 * 1000,
     onChange: onAuthChange,
   });
@@ -194,7 +194,7 @@ export function start({ config: override, root = document.getElementById('app'),
 
   const confirm = createConfirmDialog();
   const lockDialog = createLockDialog({ onUnlock: (password) => auth.unlock(password).then(describeUnlock), onSignOut: () => signOut() });
-  const login = createLoginView({ onSignIn, deskCount: cfg.deskCount });
+  const login = createLoginView({ onSignIn, onChangePassword: (n, c) => onChangePassword(n, c), onCancelChange: () => { pendingChange = null; }, deskCount: cfg.deskCount });
   const topbar = createTopbar({ onRefresh: () => refreshEvent({ manual: true }), onLock: () => auth.lock('manual'), onSignOut: () => signOut(), onDeskList: () => deskList.open() });
   const deskList = createDeskListDialog({ onRefresh: () => refreshDeskList() });
   const banners = createBannerList({ onAction: onBannerAction, onDismiss: (key) => { app.dismissed.add(key); render(); } });
@@ -314,15 +314,42 @@ export function start({ config: override, root = document.getElementById('app'),
   });
 
   // ── sign-in, lock, sign-out ─────────────────────────────────────────────────────────────────────────
+  // a sign-in that must first set a new password: kept only until the new password is saved or the person goes back
+  let pendingChange = null;
+
   async function onSignIn(username, password, deskNo) {
     app.deskNo = deskNo;
+    pendingChange = null;
     const r = await auth.signIn(username, password);
+    if (r.mustChangePassword) {
+      pendingChange = { username: r.username, current: password, changeToken: r.changeToken };
+      return { ok: false, changePassword: true, username: r.username };
+    }
     if (r.ok) {
       startDeskSession(username, password); // the key for this PC's offline data (nothing is stored until "Prepare for offline")
       return { ok: true };
     }
     if (r.failure?.noResponseFromServer && cfg.offlineMode) return signInOffline(username, password, describeLoginFailure(r.failure).message);
     return { ok: false, ...(r.failure ? describeLoginFailure(r.failure) : { message: r.message }) };
+  }
+
+  /** The new password typed on the sign-in screen after "choose your own password". */
+  async function onChangePassword(newPassword, confirmPassword) {
+    if (!pendingChange) return { ok: false, message: 'Sign in again.', backToSignIn: true };
+    const { username, current, changeToken } = pendingChange;
+    const problem = newPasswordProblem(newPassword, { current, username, confirm: confirmPassword });
+    if (problem) return { ok: false, message: problem };
+    const r = await auth.setOwnCredential(username, current, newPassword, changeToken);
+    if (r.ok) {
+      pendingChange = null;
+      startDeskSession(username, newPassword); // the offline data of this PC is keyed with the NEW password from now on
+      return { ok: true };
+    }
+    if (r.failure && (r.failure.kind === FailureKind.Unauthorized || r.failure.code === 'WRONG_PASSWORD')) {
+      pendingChange = null; // the short token ran out (10 minutes) or the password changed meanwhile: start over
+      return { ok: false, message: r.failure.kind === FailureKind.Unauthorized ? 'That took too long. Sign in again with the password you were given.' : r.failure.message, backToSignIn: true };
+    }
+    return { ok: false, message: r.failure ? r.failure.message : r.message };
   }
 
   // ── offline mode ──────────────────────────────────────────────────────────────────────────────────

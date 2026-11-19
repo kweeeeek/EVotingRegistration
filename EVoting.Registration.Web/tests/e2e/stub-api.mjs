@@ -76,6 +76,8 @@ export function createStub({ key, cert, allowedOrigins = null, host = '127.0.0.1
     log: [],
     logins: 0,
     down: false, // true: every connection is dropped at once
+    changeTokens: new Map(), // short password-change token -> username
+    passwordChanges: 0,
     issuances: [], // QR slips per election and desk (QrIssuances): { eventId, memberId, deskNo, issuedAtUtc, issuedBy, offline }
   };
 
@@ -232,7 +234,45 @@ export function createStub({ key, cert, allowedOrigins = null, host = '127.0.0.1
         send(res, req, 401, { error: 'Invalid username or password.' });
         return;
       }
+      if (user.mustChangePassword) {
+        const changeToken = `change-${randomUUID()}`;
+        state.changeTokens.set(changeToken, body.username);
+        send(res, req, 200, { accessToken: changeToken, expiresIn: 600, role: 'PasswordChange', mustChangePassword: true });
+        return;
+      }
       send(res, req, 200, { accessToken: issueToken(body.username), expiresIn: 28800, role: 'Registration' });
+      return;
+    }
+
+    // the person chooses their own password with the short token (AuthController.RegistrationChangePassword)
+    if (req.method === 'POST' && path === '/api/v1/auth/registration-change-password') {
+      const m = /^Bearer (.+)$/.exec(req.headers.authorization ?? '');
+      const username = m ? state.changeTokens.get(m[1]) : null;
+      if (!username) {
+        send(res, req, 401, undefined, { 'WWW-Authenticate': 'Bearer' });
+        return;
+      }
+      let body = {};
+      try {
+        body = JSON.parse(raw || '{}');
+      } catch {
+        send(res, req, 400, { error: 'Malformed request body.' });
+        return;
+      }
+      const user = state.users[username];
+      if (user.password !== body.currentPassword) {
+        send(res, req, 400, { error: 'The current password is wrong. Sign in again.', code: 'WRONG_PASSWORD' });
+        return;
+      }
+      if (body.newPassword === body.currentPassword) {
+        send(res, req, 400, { error: 'Choose a password different from the one you were given.', code: 'SAME_PASSWORD' });
+        return;
+      }
+      user.password = body.newPassword;
+      user.mustChangePassword = false;
+      state.changeTokens.delete(m[1]);
+      state.passwordChanges += 1;
+      send(res, req, 200, { accessToken: issueToken(username), expiresIn: 28800, role: 'Registration' });
       return;
     }
 
