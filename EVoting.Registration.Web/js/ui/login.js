@@ -12,7 +12,7 @@ import { h, setHidden, setText } from './dom.js';
  * The screen says whether the server answers and nothing more about it: the address of the server is not shown to whoever stands
  * in front of the desk.
  */
-export function createLoginView({ onSignIn, onChangePassword = async () => ({ ok: false }), onCancelChange = () => {}, deskCount = 30 }) {
+export function createLoginView({ onSignIn, onChangePassword = async () => ({ ok: false }), onCancelChange = () => {}, deskCount = 50 }) {
   let userEl;
   let passEl;
   let deskEl;
